@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { Suspense, type ReactNode } from "react";
 import { StoreProvider } from "@/client/store-provider";
 import { SiteHeader } from "@/components/site-header";
+import { ThemeScript } from "@/components/theme-script";
 import { ToastProvider } from "@/components/toaster";
 import { getCurrentUser } from "@/server/auth/service";
 import "./globals.css";
@@ -42,12 +43,22 @@ async function Session({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * The theme cookie is read by an inline script, not `cookies()`: reading it
+ * here would make every page block on the request instead of streaming from
+ * the static shell. See docs/adr/0001-theme-applied-by-inline-script.md.
+ */
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
       className={`${inter.variable} ${newsreader.variable} ${plexMono.variable} h-full antialiased`}
+      // The head script adds data-theme before React hydrates.
+      suppressHydrationWarning
     >
+      <head>
+        <ThemeScript />
+      </head>
       <body className="flex min-h-full flex-col font-sans">
         <Suspense>
           <Session>{children}</Session>

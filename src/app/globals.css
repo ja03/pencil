@@ -1,8 +1,23 @@
 @import "tailwindcss";
 
-/* Design tokens from the UI Design. Dark follows the system for now; the
-   theme cookie (light / dark / system) comes with the settings page. */
+/* Dark applies when the reader chose it, or chose nothing (system) and the
+   system is dark. The choice is the data-theme attribute on <html>, set from
+   the theme cookie by the inline script in the root layout before first
+   paint. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme]), :root:not([data-theme]) *) {
+      @slot;
+    }
+  }
+}
+
+/* Design tokens from the UI Design. */
 :root {
+  color-scheme: light;
   --bg: #f4eee3;
   --surf: #fbf8f2;
   --ink: #2a1e16;
@@ -27,10 +42,9 @@
   --pub-ink: #2f5a2a;
   --draft-bg: #f1e3c9;
   --draft-ink: #6b4610;
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
+  @variant dark {
+    color-scheme: dark;
     --bg: #14100c;
     --surf: #1e1712;
     --ink: #f2e9da;
