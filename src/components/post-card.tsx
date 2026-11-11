@@ -58,10 +58,15 @@ export function PostCard({ post }: { post: PostSummary }) {
             <time dateTime={post.publishedAt}>{shortDate(post.publishedAt)}</time>
             <span className="sr-only">, {post.readingMinutes} min read</span>
           </span>
-          <span className="ml-auto flex flex-none items-center gap-1 tabular-nums">
-            <HeartIcon filled={false} size={14} />
+          <span
+            className={`ml-auto flex flex-none items-center gap-1 tabular-nums ${post.likedByViewer ? "text-acc" : ""}`}
+          >
+            <HeartIcon filled={post.likedByViewer} size={14} />
             <span aria-hidden="true">{post.likeCount}</span>
-            <span className="sr-only">{likesLabel(post.likeCount)}</span>
+            <span className="sr-only">
+              {likesLabel(post.likeCount)}
+              {post.likedByViewer && ", including yours"}
+            </span>
           </span>
         </div>
       </div>

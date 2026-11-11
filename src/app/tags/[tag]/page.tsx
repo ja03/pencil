@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { FeedList, FeedSkeleton } from "@/components/feed-list";
 import { normalizeTag, tagPath } from "@/contracts/tags";
+import { getCurrentUser } from "@/server/auth/service";
 import { countTagged, listPublished } from "@/server/posts/service";
 
 type Props = PageProps<"/tags/[tag]">;
@@ -56,7 +58,11 @@ async function TagView({ params }: Pick<Props, "params">) {
   if (decoded(segment) !== tag) permanentRedirect(tagPath(tag));
   // Always fresh: read at request time, never prerendered.
   await connection();
-  const [first, count] = await Promise.all([listPublished(null, { tag }), countTagged(tag)]);
+  const viewer = await getCurrentUser(await cookies());
+  const [first, count] = await Promise.all([
+    listPublished(viewer, null, { tag }),
+    countTagged(tag),
+  ]);
 
   return (
     <>

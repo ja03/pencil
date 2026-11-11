@@ -135,6 +135,7 @@ export type PostSummary = Pick<
   | "editedAt"
   | "author"
   | "likeCount"
+  | "likedByViewer"
 > & { publishedAt: string };
 
 /**

@@ -1,8 +1,10 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { FeedList, FeedSkeleton } from "@/components/feed-list";
+import { getCurrentUser } from "@/server/auth/service";
 import { listPublished } from "@/server/posts/service";
 
 const mono = "label-mono tracking-[0.1em]";
@@ -30,7 +32,7 @@ export default function FeedPage() {
 async function LatestPosts() {
   // Always fresh: read at request time, never prerendered.
   await connection();
-  const first = await listPublished(null);
+  const first = await listPublished(await getCurrentUser(await cookies()), null);
   if (first.posts.length === 0) {
     return (
       <EmptyState

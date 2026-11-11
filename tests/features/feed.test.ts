@@ -107,6 +107,7 @@ describe("GET /api/posts (the public feed)", () => {
       editedAt: null,
       author: { id: author.user.id, username: author.user.username },
       likeCount: 0,
+      likedByViewer: false,
     });
   });
 

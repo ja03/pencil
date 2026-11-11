@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import type { FeedResponse } from "@/contracts/posts";
+import { getCurrentUser } from "@/server/auth/service";
 import { tagParam } from "@/server/http/params";
 import { route } from "@/server/http/route";
 import { cursorParam } from "@/server/posts/cursor";
@@ -20,6 +21,6 @@ export const GET = route(async (request: NextRequest, context: Context) => {
   const { cursor } = pageQuery.parse({
     cursor: request.nextUrl.searchParams.get("cursor") ?? undefined,
   });
-  const body: FeedResponse = await listPublished(cursor, { tag });
+  const body: FeedResponse = await listPublished(await getCurrentUser(request.cookies), cursor, { tag });
   return Response.json(body);
 });

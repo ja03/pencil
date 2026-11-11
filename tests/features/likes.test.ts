@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { DELETE as unlikeRoute, PUT as likeRoute } from "@/app/api/posts/[id]/like/route";
 import { GET as getPost } from "@/app/api/posts/[id]/route";
 import { GET as getFeed } from "@/app/api/posts/route";
+import { GET as getTagPosts } from "@/app/api/tags/[tag]/posts/route";
+import { GET as getUserPosts } from "@/app/api/users/[username]/posts/route";
 import { db } from "@/server/db";
 import { signedIn } from "../helpers/auth";
 import { draftBy, publishedBy } from "../helpers/posts";
@@ -202,6 +204,45 @@ describe("like counts on posts", () => {
     const res = await call(getFeed, { path: "/api/posts" });
 
     expect(res.body.posts[0]).toMatchObject({ id: post.id, likeCount: 1 });
+  });
+
+  it("marks the cards the signed-in reader likes", async () => {
+    const author = await signedIn({ verified: true });
+    const liked = await publishedBy(author, "Liked");
+    const passed = await publishedBy(author, "Passed over");
+    const reader = await signedIn({ verified: true });
+    await like(liked.id, reader.headers);
+
+    const mine = await call(getFeed, { path: "/api/posts", headers: reader.headers });
+    const anon = await call(getFeed, { path: "/api/posts" });
+
+    const likedIn = (res: typeof mine) =>
+      Object.fromEntries(
+        res.body.posts.map((p: { id: string; likedByViewer: boolean }) => [p.id, p.likedByViewer]),
+      );
+    expect(likedIn(mine)).toEqual({ [liked.id]: true, [passed.id]: false });
+    expect(likedIn(anon)).toEqual({ [liked.id]: false, [passed.id]: false });
+  });
+
+  it("marks liked cards on tag and profile pages too", async () => {
+    const author = await signedIn({ verified: true });
+    const post = await publishedBy(author, "Tagged", ["walking"]);
+    const reader = await signedIn({ verified: true });
+    await like(post.id, reader.headers);
+
+    const tagged = await call(getTagPosts, {
+      path: "/api/tags/walking/posts",
+      headers: reader.headers,
+      params: { tag: "walking" },
+    });
+    const profile = await call(getUserPosts, {
+      path: `/api/users/${author.user.username}/posts`,
+      headers: reader.headers,
+      params: { username: author.user.username },
+    });
+
+    expect(tagged.body.posts[0]).toMatchObject({ id: post.id, likedByViewer: true });
+    expect(profile.body.posts[0]).toMatchObject({ id: post.id, likedByViewer: true });
   });
 
   it("shows the count on the post, and whether the viewer likes it", async () => {
