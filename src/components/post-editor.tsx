@@ -9,7 +9,13 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { z } from "zod";
 import { apiErrorOf } from "@/client/api";
-import { useCreatePostMutation, useUpdatePostMutation } from "@/client/posts-api";
+import { selectCurrentUser } from "@/client/auth-slice";
+import {
+  useCreatePostMutation,
+  usePublishPostMutation,
+  useUpdatePostMutation,
+} from "@/client/posts-api";
+import { useAppSelector } from "@/client/store";
 import { useLeaveGuard } from "@/client/use-leave-guard";
 import type { FieldErrors } from "@/contracts/api-error";
 import { isAllowedLinkHref } from "@/contracts/post-content";
@@ -22,22 +28,31 @@ import {
 import { useToast } from "./toaster";
 
 const label = "label-mono text-[10px] tracking-[0.1em] text-mut";
+const button =
+  "label-mono h-11 cursor-pointer rounded-full px-[18px] tracking-[0.1em] transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-60";
 
 /** Each save's toast replaces the previous save's, so a stale error doesn't linger. */
 const SAVE_TOAST = { key: "post-save" };
 
+const VERIFY_TO_PUBLISH = "Verify your email to publish. You can keep writing drafts until then.";
+
 /**
  * The post editor: title, description and rich content, saved as a draft
- * through the REST API. Pencil doesn't autosave, so it warns before leaving
- * with unsaved changes and reports every save or failure with a toast.
+ * through the REST API and published when ready. Pencil doesn't autosave, so
+ * it warns before leaving with unsaved changes and reports every save,
+ * publish or failure with a toast.
  */
 export function PostEditor({ initial }: { initial: Post | null }) {
   const router = useRouter();
   const toast = useToast();
+  const verified = useAppSelector(selectCurrentUser)?.emailVerified ?? false;
   const [createPost] = useCreatePostMutation();
   const [updatePost] = useUpdatePostMutation();
+  const [publishPost] = usePublishPostMutation();
 
   const [postId, setPostId] = useState(initial?.id ?? null);
+  const published = initial?.status === "published";
+  const [publishing, setPublishing] = useState(false);
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [fields, setFields] = useState<FieldErrors>({});
@@ -81,17 +96,18 @@ export function PostEditor({ initial }: { initial: Post | null }) {
   });
 
   // The latest `save`, for a toast's Retry button created by an earlier render.
-  const saveRef = useRef<() => Promise<boolean>>(async () => false);
+  const saveRef = useRef<() => Promise<Post | null>>(async () => null);
 
-  const save = useCallback(async (): Promise<boolean> => {
-    if (!editor || saving) return false;
+  /** Saves the post; resolves to the saved post, or null when it wasn't saved. */
+  const save = useCallback(async (): Promise<Post | null> => {
+    if (!editor || saving) return null;
     const body = { title, description, content: editor.getJSON() };
     // Same schema the API validates with, so most mistakes show before a round trip.
     const parsed = createPostInput.safeParse(body);
     if (!parsed.success) {
       setFields(z.flattenError(parsed.error).fieldErrors as FieldErrors);
       toast.error("Fix the highlighted fields, then save again.", SAVE_TOAST);
-      return false;
+      return null;
     }
     setFields({});
     setSaving(true);
@@ -107,7 +123,7 @@ export function PostEditor({ initial }: { initial: Post | null }) {
       }
       setSavedVersion(sentVersion);
       toast.success(post.status === "published" ? "Changes saved." : "Draft saved.", SAVE_TOAST);
-      return true;
+      return post;
     } catch (error) {
       const apiError = apiErrorOf(error);
       if (apiError?.fields) setFields(apiError.fields);
@@ -121,7 +137,7 @@ export function PostEditor({ initial }: { initial: Post | null }) {
           action: { label: "Retry", onClick: () => void saveRef.current() },
         });
       }
-      return false;
+      return null;
     } finally {
       setSaving(false);
     }
@@ -143,9 +159,35 @@ export function PostEditor({ initial }: { initial: Post | null }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [save]);
 
+  /** Saves any unsaved changes, then publishes and opens the post. */
+  async function publish() {
+    if (!verified) {
+      toast.error(VERIFY_TO_PUBLISH, SAVE_TOAST);
+      return;
+    }
+    if (saving || publishing) return;
+    let id = postId;
+    if (dirty || !id) {
+      id = (await save())?.id ?? null;
+      if (!id) return;
+    }
+    setPublishing(true);
+    try {
+      const { post } = await publishPost(id).unwrap();
+      toast.success("Published. It's in the feed now.", SAVE_TOAST);
+      router.push(`/posts/${post.slug}`);
+    } catch (error) {
+      const apiError = apiErrorOf(error);
+      toast.error(apiError?.message ?? "Couldn't publish. Check your connection.", SAVE_TOAST);
+      setPublishing(false);
+    }
+  }
+
   const { pendingHref, stay } = useLeaveGuard(dirty);
 
-  const status = saving
+  const status = publishing
+    ? "Publishing…"
+    : saving
     ? "Saving…"
     : dirty
       ? "Unsaved changes"
@@ -155,6 +197,11 @@ export function PostEditor({ initial }: { initial: Post | null }) {
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg text-ink">
+      {!verified && !published && (
+        <p className="m-0 bg-warn-bg px-5 py-2.5 text-center text-[13px] text-warn-ink">
+          {VERIFY_TO_PUBLISH}
+        </p>
+      )}
       <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-line bg-surf px-3 py-2.5 sm:px-8 sm:py-3.5">
         <div className="flex min-w-0 items-center gap-3">
           <Link
@@ -167,7 +214,7 @@ export function PostEditor({ initial }: { initial: Post | null }) {
             </svg>
           </Link>
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className={label}>{initial?.status === "published" ? "Published" : "Draft"}</span>
+            <span className={label}>{published ? "Published" : "Draft"}</span>
             <span role="status" className="flex items-center gap-1.5 text-[13px]">
               {dirty && !saving && (
                 <span aria-hidden="true" className="size-[7px] rounded-full bg-dot" />
@@ -176,14 +223,37 @@ export function PostEditor({ initial }: { initial: Post | null }) {
             </span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => void save()}
-          disabled={saving || !editor}
-          className="label-mono h-11 cursor-pointer rounded-full bg-btn px-[18px] tracking-[0.1em] text-on-btn transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
-        >
-          {saving ? "Saving…" : "Save draft"}
-        </button>
+        {published ? (
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={saving || !editor}
+            className={`${button} bg-btn text-on-btn`}
+          >
+            {saving ? "Saving…" : "Save changes"}
+          </button>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => void save()}
+              disabled={saving || publishing || !editor}
+              className={`${button} border border-line bg-transparent text-ink`}
+            >
+              {saving && !publishing ? "Saving…" : "Save draft"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void publish()}
+              disabled={saving || publishing || !editor}
+              // Not `disabled` when unverified: it stays focusable and says why on click.
+              aria-disabled={!verified || undefined}
+              className={`${button} ${verified ? "bg-btn text-on-btn" : "cursor-not-allowed bg-line text-mut"}`}
+            >
+              {publishing ? "Publishing…" : "Publish"}
+            </button>
+          </div>
+        )}
       </header>
 
       <main className="mx-auto box-border flex w-full max-w-[820px] flex-col gap-[26px] px-4 pt-6 pb-16 sm:px-8 sm:pt-12 sm:pb-24">

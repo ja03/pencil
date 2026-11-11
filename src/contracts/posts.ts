@@ -60,12 +60,32 @@ export type Post = {
   /** Sanitized HTML rendered from `content` on the server. */
   html: string;
   coverUrl: string | null;
+  /** Estimated minutes to read, at least 1. */
+  readingMinutes: number;
   status: PostStatus;
+  /** Set the first time the post is published and never changed after. */
   publishedAt: string | null;
+  /** When it was last edited after publishing; shown as an "edited" label. */
+  editedAt: string | null;
   createdAt: string;
   updatedAt: string;
   author: PostAuthor;
 };
 
-/** Body of create, read and update responses. */
+/** Body of create, read, update and publish responses. */
 export type PostResponse = { post: Post };
+
+/** Posts per feed page. */
+export const FEED_PAGE_SIZE = 10;
+
+/** A published post as a feed card shows it: no body, so pages stay small. */
+export type PostSummary = Pick<
+  Post,
+  "id" | "slug" | "title" | "summary" | "coverUrl" | "readingMinutes" | "editedAt" | "author"
+> & { publishedAt: string };
+
+/**
+ * One page of a post list, newest published first. Pass `nextCursor` back as
+ * `?cursor=` for the next page; null means there are no more.
+ */
+export type FeedResponse = { posts: PostSummary[]; nextCursor: string | null };

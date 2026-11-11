@@ -16,6 +16,8 @@
   --err-ink: #a3291f;
   --ok: #2f6a2a;
   --dot: #c7781e;
+  --warn-bg: #f3dfc2;
+  --warn-ink: #5e360d;
   --toast: #241a13;
   --toast-ink: #f7efe2;
   --toast-mut: #c9b8a4;
@@ -37,6 +39,8 @@
     --err-ink: #f08a7e;
     --ok: #a9d49f;
     --dot: #f0b35e;
+    --warn-bg: #3a2a16;
+    --warn-ink: #f2c98e;
     --toast: #f2e9da;
     --toast-ink: #1c1510;
     --toast-mut: #6a5848;
@@ -58,6 +62,8 @@
   --color-err-ink: var(--err-ink);
   --color-ok: var(--ok);
   --color-dot: var(--dot);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-ink: var(--warn-ink);
   --color-toast: var(--toast);
   --color-toast-ink: var(--toast-ink);
   --color-toast-mut: var(--toast-mut);
@@ -80,7 +86,7 @@ body {
   text-transform: uppercase;
 }
 
-/* Post body typography: the editor and (later) the post page share it, so
+/* Post body typography: the editor and the post page share it, so
    what an author writes looks the way readers will see it. */
 .post-prose {
   font-family: var(--font-serif);

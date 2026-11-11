@@ -10,6 +10,8 @@ docker compose up
 
 This starts the app on <http://localhost:3000> along with Postgres (host port 5433), MinIO (<http://localhost:9001>, `pencil` / `pencil-secret`) and Mailpit (<http://localhost:8025>), then runs migrations and the seed.
 
+The seed adds published demo posts and four verified demo authors, so publishing works straight away. Log in as `lina.k@pencil.local` (or `omar.h`, `devnotes`, `sara.m` at `pencil.local`) with the password `pencil-demo`.
+
 ## Develop
 
 ```bash
