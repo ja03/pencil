@@ -2,7 +2,7 @@ import type { CurrentUser } from "@/contracts/auth";
 import type { LikeResponse } from "@/contracts/likes";
 import { clock } from "@/server/clock";
 import { ApiError } from "@/server/http/errors";
-import { findPostById } from "@/server/posts/repository";
+import { isPublished } from "@/server/posts/repository";
 import * as likes from "./repository";
 
 /**
@@ -11,8 +11,7 @@ import * as likes from "./repository";
  * there is nothing to like until it is published.
  */
 async function checkCanLike(user: CurrentUser, postId: string): Promise<void> {
-  const post = await findPostById(postId);
-  if (!post?.publishedAt) throw new ApiError("NOT_FOUND", "That post doesn't exist.");
+  if (!(await isPublished(postId))) throw new ApiError("NOT_FOUND", "That post doesn't exist.");
   if (!user.emailVerified) throw new ApiError("FORBIDDEN", "Verify your email to like posts.");
 }
 

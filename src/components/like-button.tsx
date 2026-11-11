@@ -66,7 +66,7 @@ export function LikeButton({ postId, initial }: { postId: string; initial: LikeR
 
   function onClick() {
     if (!user) {
-      toast.error("Log in to like posts.", {
+      toast.info("Log in to like posts.", {
         key: "like",
         action: {
           label: "Log in",
@@ -76,7 +76,7 @@ export function LikeButton({ postId, initial }: { postId: string; initial: LikeR
       return;
     }
     if (!user.emailVerified) {
-      toast.error("Verify your email to like posts.", { key: "like" });
+      toast.info("Verify your email to like posts.", { key: "like" });
       return;
     }
     update(toggled);

@@ -199,6 +199,11 @@ export async function findPublishedPage(
   return rows as PostSummaryRow[];
 }
 
+/** Whether `id` is a published post that hasn't been deleted. Reads no post fields. */
+export async function isPublished(id: string): Promise<boolean> {
+  return (await db().post.count({ where: { id, ...PUBLISHED } })) > 0;
+}
+
 /** How many published, non-deleted posts carry `tag`. */
 export function countPublishedWithTag(tag: string): Promise<number> {
   return db().post.count({ where: { ...PUBLISHED, tags: { some: { tag: { name: tag } } } } });
