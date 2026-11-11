@@ -159,6 +159,41 @@ body {
   border-radius: 12px;
 }
 
+/* Holds an inline image's place in the editor while it uploads. */
+.upload-placeholder {
+  display: flex;
+  aspect-ratio: 16 / 9;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 12px;
+  background: var(--soft);
+  color: var(--mut);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+}
+.upload-placeholder-track {
+  width: min(200px, 60%);
+  height: 4px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--line);
+}
+.upload-placeholder-bar {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--acc);
+  transition: width 0.2s ease;
+}
+.post-prose.ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
 /* The editor surface. */
 .post-prose.ProseMirror {
   min-height: 320px;

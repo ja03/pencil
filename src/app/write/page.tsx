@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { EditorSkeleton, PostEditor } from "@/components/post-editor";
 import { normalizeTag } from "@/contracts/tags";
+import { storageImageRules } from "@/server/uploads/service";
 
 export const metadata: Metadata = { title: "New post · Pencil" };
 
@@ -20,5 +21,11 @@ export default function NewPostPage({ searchParams }: PageProps<"/write">) {
 async function NewPost({ searchParams }: Pick<PageProps<"/write">, "searchParams">) {
   const { tag } = await searchParams;
   const initialTag = typeof tag === "string" ? normalizeTag(tag) : null;
-  return <PostEditor initial={null} initialTags={initialTag ? [initialTag] : []} />;
+  return (
+    <PostEditor
+      initial={null}
+      initialTags={initialTag ? [initialTag] : []}
+      imageBase={storageImageRules().imageBase!}
+    />
+  );
 }

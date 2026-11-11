@@ -86,6 +86,7 @@ export async function createDraft(author: CurrentUser, input: CreatePostInput): 
     authorId: author.id,
     title: input.title,
     description: input.description,
+    coverUrl: input.coverUrl,
     excerpt: excerptOf(input.content),
     readingMinutes: readingMinutesOf(input.content),
     content: input.content,
@@ -132,7 +133,7 @@ function sameList(a: string[], b: string[]): boolean {
 }
 
 /**
- * Edits a post's title, description, content or tags. The slug never changes, and
+ * Edits a post's title, description, cover, content or tags. The slug never changes, and
  * neither does `publishedAt`: an actual change to a published post marks it
  * edited instead. Only the author may edit: others get 404 for a draft and
  * 403 for a published post.
@@ -146,11 +147,13 @@ export async function updatePost(
   const changed =
     (input.title !== undefined && input.title !== row.title) ||
     (input.description !== undefined && input.description !== row.description) ||
+    (input.coverUrl !== undefined && input.coverUrl !== row.coverUrl) ||
     (input.content !== undefined && !sameJson(input.content, row.content)) ||
     (input.tags !== undefined && !sameList(input.tags, namesOf(row.tags)));
   const updated = await posts.updatePost(id, {
     title: input.title,
     description: input.description,
+    coverUrl: input.coverUrl,
     ...(input.content && {
       content: input.content,
       excerpt: excerptOf(input.content),

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { EditorSkeleton, PostEditor } from "@/components/post-editor";
 import { getCurrentUser } from "@/server/auth/service";
 import { findOwnPost } from "@/server/posts/service";
+import { storageImageRules } from "@/server/uploads/service";
 
 export const metadata: Metadata = { title: "Edit post · Pencil" };
 
@@ -29,5 +30,5 @@ async function EditPost({ params }: Pick<PageProps<"/write/[id]">, "params">) {
   const post = postId.success ? await findOwnPost(user, postId.data) : null;
   if (!post) notFound();
   // Keyed by id so moving between two posts starts a fresh editor.
-  return <PostEditor key={post.id} initial={post} />;
+  return <PostEditor key={post.id} initial={post} imageBase={storageImageRules().imageBase!} />;
 }

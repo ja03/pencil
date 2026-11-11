@@ -62,6 +62,8 @@ export type NewPost = {
   authorId: string;
   title: string;
   description: string | null;
+  /** An uploaded image in Pencil's storage, or null for the generated cover. */
+  coverUrl: string | null;
   excerpt: string;
   readingMinutes: number;
   content: PostContent;
@@ -98,6 +100,7 @@ export async function createPost(baseSlug: string, data: NewPost): Promise<PostR
 export type PostChanges = {
   title?: string;
   description?: string | null;
+  coverUrl?: string | null;
   excerpt?: string;
   readingMinutes?: number;
   content?: PostContent;

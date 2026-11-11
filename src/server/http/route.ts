@@ -60,6 +60,33 @@ export async function parseJson<S extends z.ZodType>(
   return schema.parse(raw);
 }
 
+/**
+ * Reads the raw body, stopping as soon as it passes `maxBytes` so an
+ * oversized upload is never held in memory. Throws `tooLarge()` when it does.
+ */
+export async function readBody(
+  request: Request,
+  maxBytes: number,
+  tooLarge: () => Error,
+): Promise<Uint8Array> {
+  if (Number(request.headers.get("content-length") ?? 0) > maxBytes) throw tooLarge();
+  if (!request.body) return new Uint8Array();
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > maxBytes) {
+      await reader.cancel();
+      throw tooLarge();
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks);
+}
+
 function fieldErrors(error: z.ZodError): Record<string, string[]> {
   const fields: Record<string, string[]> = {};
   for (const issue of error.issues) {

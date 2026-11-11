@@ -1,9 +1,10 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { createPostInput, type FeedResponse, type PostResponse } from "@/contracts/posts";
+import type { FeedResponse, PostResponse } from "@/contracts/posts";
 import { requireUser } from "@/server/auth/service";
 import { parseJson, route } from "@/server/http/route";
 import { cursorParam } from "@/server/posts/cursor";
+import { serverPostInputs } from "@/server/posts/inputs";
 import { createDraft, listPublished } from "@/server/posts/service";
 
 const feedQuery = z.object({ cursor: cursorParam });
@@ -22,7 +23,7 @@ export const GET = route(async (request: NextRequest) => {
 /** POST /api/posts: save a new draft for the signed-in user. */
 export const POST = route(async (request) => {
   const user = await requireUser(request.cookies);
-  const input = await parseJson(request, createPostInput);
+  const input = await parseJson(request, serverPostInputs().createPostInput);
   const body: PostResponse = { post: await createDraft(user, input) };
   return Response.json(body, { status: 201 });
 });

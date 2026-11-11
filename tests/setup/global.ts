@@ -1,9 +1,15 @@
 import { execFileSync } from "node:child_process";
-import { CreateBucketCommand, HeadBucketCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  CreateBucketCommand,
+  HeadBucketCommand,
+  PutBucketPolicyCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
+import { publicReadPolicy } from "../../src/server/storage";
 import { testEnv } from "./env";
 
 // Runs once before the whole suite: bring the test database to the latest
-// migration and make sure the test bucket exists.
+// migration and make sure the test bucket exists and serves images publicly.
 export default async function setup() {
   execFileSync("npx", ["prisma", "migrate", "deploy"], {
     env: { ...process.env, ...testEnv },
@@ -24,5 +30,11 @@ export default async function setup() {
   } catch {
     await s3.send(new CreateBucketCommand({ Bucket: testEnv.S3_BUCKET }));
   }
+  await s3.send(
+    new PutBucketPolicyCommand({
+      Bucket: testEnv.S3_BUCKET,
+      Policy: publicReadPolicy(testEnv.S3_BUCKET),
+    }),
+  );
   s3.destroy();
 }

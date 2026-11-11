@@ -19,6 +19,25 @@ export function s3(): S3Client {
   return globalForStorage.s3;
 }
 
+/**
+ * A bucket policy letting anyone read (but not list or write) objects, so
+ * uploaded images load straight from storage. Applied to MinIO by the seed;
+ * on R2, public access is a bucket setting instead.
+ */
+export function publicReadPolicy(bucket: string): string {
+  return JSON.stringify({
+    Version: "2012-10-17",
+    Statement: [
+      {
+        Effect: "Allow",
+        Principal: { AWS: ["*"] },
+        Action: ["s3:GetObject"],
+        Resource: [`arn:aws:s3:::${bucket}/*`],
+      },
+    ],
+  });
+}
+
 /** True when the configured bucket exists and the credentials can reach it. */
 export async function isBucketReachable(): Promise<boolean> {
   try {

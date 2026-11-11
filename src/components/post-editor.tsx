@@ -6,7 +6,7 @@ import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/r
 import StarterKit from "@tiptap/starter-kit";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { z } from "zod";
 import { apiErrorOf } from "@/client/api";
 import { selectCurrentUser } from "@/client/auth-slice";
@@ -16,15 +16,14 @@ import {
   useUpdatePostMutation,
 } from "@/client/posts-api";
 import { useAppSelector } from "@/client/store";
+import type { UploadError } from "@/client/upload-image";
 import { useLeaveGuard } from "@/client/use-leave-guard";
 import type { FieldErrors } from "@/contracts/api-error";
 import { isAllowedLinkHref } from "@/contracts/post-content";
-import {
-  createPostInput,
-  DESCRIPTION_MAX_LENGTH,
-  TITLE_MAX_LENGTH,
-  type Post,
-} from "@/contracts/posts";
+import { DESCRIPTION_MAX_LENGTH, postInputs, TITLE_MAX_LENGTH, type Post } from "@/contracts/posts";
+import { IMAGE_TYPES } from "@/contracts/uploads";
+import { CoverField } from "./cover-field";
+import { ImageUploads, insertUploadedImage, type ImageUploadHandlers } from "./image-uploads";
 import { TagInput } from "./tag-input";
 import { useToast } from "./toaster";
 
@@ -41,15 +40,19 @@ const VERIFY_TO_PUBLISH = "Verify your email to publish. You can keep writing dr
  * The post editor: title, description and rich content, saved as a draft
  * through the REST API and published when ready. Pencil doesn't autosave, so
  * it warns before leaving with unsaved changes and reports every save,
- * publish or failure with a toast.
+ * publish or failure with a toast. Images (cover and inline) upload as soon
+ * as they're picked; the post stores their addresses when it's saved.
  */
 export function PostEditor({
   initial,
   initialTags = [],
+  imageBase,
 }: {
   initial: Post | null;
   /** Tags for a new post, such as the one a tag page's "Write with this tag" passes. */
   initialTags?: string[];
+  /** Public address of Pencil's storage; post images must sit under it. */
+  imageBase: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -64,6 +67,9 @@ export function PostEditor({
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [tags, setTags] = useState(initial?.tags ?? initialTags);
+  const [coverUrl, setCoverUrl] = useState(initial?.coverUrl ?? null);
+  // Inline images still uploading; they join the content when they finish.
+  const [uploads, setUploads] = useState(0);
   const [fields, setFields] = useState<FieldErrors>({});
   const [saving, setSaving] = useState(false);
   // Every edit bumps `version`; a save records the version it sent, so edits
@@ -72,6 +78,15 @@ export function PostEditor({
   const [savedVersion, setSavedVersion] = useState(0);
   const dirty = version !== savedVersion;
   const changed = useCallback(() => setVersion((v) => v + 1), []);
+  // The server's own rules, so an image from another site is caught before saving.
+  const { createPostInput } = useMemo(() => postInputs({ imageBase }), [imageBase]);
+
+  // The editor is created once, so these must never change: they use only a
+  // state setter and the toast API, both stable.
+  const [uploadHandlers] = useState<ImageUploadHandlers>(() => ({
+    onBusyChange: (delta) => setUploads((n) => n + delta),
+    onError: (error: UploadError) => toast.error(error.message, { key: "image-upload" }),
+  }));
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -90,6 +105,7 @@ export function PostEditor({
         },
       }),
       Image,
+      ImageUploads.configure({ imageBase, handlers: uploadHandlers }),
       Placeholder.configure({ placeholder: "Start writing…" }),
     ],
     content: initial?.content ?? "",
@@ -110,7 +126,7 @@ export function PostEditor({
   /** Saves the post; resolves to the saved post, or null when it wasn't saved. */
   const save = useCallback(async (): Promise<Post | null> => {
     if (!editor || saving) return null;
-    const body = { title, description, tags, content: editor.getJSON() };
+    const body = { title, description, tags, coverUrl, content: editor.getJSON() };
     // Same schema the API validates with, so most mistakes show before a round trip.
     const parsed = createPostInput.safeParse(body);
     if (!parsed.success) {
@@ -150,7 +166,20 @@ export function PostEditor({
     } finally {
       setSaving(false);
     }
-  }, [editor, saving, title, description, tags, version, postId, updatePost, createPost, toast]);
+  }, [
+    editor,
+    saving,
+    title,
+    description,
+    tags,
+    coverUrl,
+    createPostInput,
+    version,
+    postId,
+    updatePost,
+    createPost,
+    toast,
+  ]);
 
   useEffect(() => {
     saveRef.current = save;
@@ -198,6 +227,8 @@ export function PostEditor({
     ? "Publishing…"
     : saving
     ? "Saving…"
+    : uploads > 0
+    ? "Uploading image…"
     : dirty
       ? "Unsaved changes"
       : postId
@@ -266,6 +297,17 @@ export function PostEditor({
       </header>
 
       <main className="mx-auto box-border flex w-full max-w-[820px] flex-col gap-[26px] px-4 pt-6 pb-16 sm:px-8 sm:pt-12 sm:pb-24">
+        <CoverField
+          postId={postId}
+          coverUrl={coverUrl}
+          onChange={(url) => {
+            setCoverUrl(url);
+            changed();
+          }}
+          onError={uploadHandlers.onError}
+          errors={fields.coverUrl}
+        />
+
         <Field id="title" label="Title" count={title.length} max={TITLE_MAX_LENGTH} errors={fields.title}>
           <input
             id="title"
@@ -319,7 +361,18 @@ export function PostEditor({
           <div
             className={`mt-1 flex flex-col overflow-hidden rounded-[18px] border bg-surf focus-within:ring-2 focus-within:ring-acc/40 ${fields.content ? "border-err-ink" : "border-line"}`}
           >
-            <Toolbar editor={editor} />
+            <Toolbar
+              editor={editor}
+              onInsertImage={(file) =>
+                editor &&
+                void insertUploadedImage(
+                  editor,
+                  file,
+                  editor.state.selection.from,
+                  uploadHandlers,
+                )
+              }
+            />
             <div className="px-[18px] py-[18px] sm:px-9 sm:py-7">
               <EditorContent editor={editor} />
             </div>
@@ -428,11 +481,22 @@ function toggleLink(editor: Editor) {
   }
 }
 
-function Toolbar({ editor }: { editor: Editor | null }) {
+const toolClass =
+  "h-10 min-w-10 flex-none cursor-pointer rounded-[10px] px-2 text-ink hover:bg-soft disabled:cursor-default disabled:opacity-50";
+
+function Toolbar({
+  editor,
+  onInsertImage,
+}: {
+  editor: Editor | null;
+  /** Uploads the picked file and inserts it at the cursor. */
+  onInsertImage(file: File): void;
+}) {
   const active = useEditorState({
     editor,
     selector: ({ editor: e }) => (e ? TOOLS.map((tool) => tool.isActive(e)) : []),
   });
+  const fileInput = useRef<HTMLInputElement>(null);
 
   return (
     <div role="toolbar" aria-label="Formatting" className="flex gap-0.5 overflow-x-auto border-b border-line p-1.5">
@@ -446,11 +510,36 @@ function Toolbar({ editor }: { editor: Editor | null }) {
           // Keep the selection in the editor while clicking.
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => editor && tool.run(editor)}
-          className={`h-10 min-w-10 flex-none cursor-pointer rounded-[10px] px-2 text-ink hover:bg-soft disabled:cursor-default disabled:opacity-50 ${active?.[i] ? "bg-soft" : "bg-transparent"} ${tool.className}`}
+          className={`${toolClass} ${active?.[i] ? "bg-soft" : "bg-transparent"} ${tool.className}`}
         >
           {tool.glyph}
         </button>
       ))}
+      <button
+        type="button"
+        aria-label="Insert image"
+        disabled={!editor}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => fileInput.current?.click()}
+        className={`${toolClass} bg-transparent text-[13px] font-medium`}
+      >
+        Image
+      </button>
+      <input
+        ref={fileInput}
+        type="file"
+        accept={IMAGE_TYPES.join(",")}
+        multiple
+        tabIndex={-1}
+        aria-hidden="true"
+        className="hidden"
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          // Clear it so picking the same file again still fires a change.
+          event.target.value = "";
+          for (const file of files) onInsertImage(file);
+        }}
+      />
     </div>
   );
 }

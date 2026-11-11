@@ -103,7 +103,43 @@ export function isAllowedImageSrc(value: unknown): value is string {
   return isAllowedUrl(value, IMAGE_PROTOCOLS);
 }
 
+/**
+ * True when `src` is an address inside `base` (Pencil's storage). Both the
+ * address as written and as a browser would resolve it must sit under the
+ * base, so `..` segments (plain, encoded or with backslashes) can't climb out.
+ */
+export function isUnderImageBase(src: string, base: string): boolean {
+  try {
+    const prefix = new URL(base).href.replace(/\/*$/, "/");
+    return (
+      src.startsWith(prefix) && src.length > prefix.length && new URL(src).href.startsWith(prefix)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Rules for images, set by whoever checks: the server knows where its storage is. */
+export type ImageRules = {
+  /**
+   * Public base address of Pencil's storage. When set, every image must sit
+   * under it, so posts can't embed tracking pixels from other sites.
+   */
+  imageBase?: string;
+};
+
+/** Why `src` can't be an image address, or null when it can. */
+export function imageSrcProblem(src: unknown, { imageBase }: ImageRules = {}): string | null {
+  if (!isAllowedImageSrc(src)) return "Images need an http(s) address.";
+  if (imageBase !== undefined && !isUnderImageBase(src, imageBase)) {
+    return "Images must be uploaded to Pencil.";
+  }
+  return null;
+}
+
 class Checker {
+  constructor(private readonly rules: ImageRules) {}
+
   private nodes = 0;
   private textLength = 0;
   /** Whether the document has any visible text or an image. */
@@ -193,13 +229,12 @@ class Checker {
         return withContent({ type, attrs: { language } }, content);
       }
       case "image": {
-        if (!isAllowedImageSrc(attrs.src)) {
-          throw new Invalid([...path, "attrs", "src"], "Images need an http(s) address.");
-        }
+        const problem = imageSrcProblem(attrs.src, this.rules);
+        if (problem) throw new Invalid([...path, "attrs", "src"], problem);
         this.hasSubstance = true;
         return {
           type,
-          attrs: { src: attrs.src, alt: optionalString(attrs.alt), title: optionalString(attrs.title) },
+          attrs: { src: attrs.src as string, alt: optionalString(attrs.alt), title: optionalString(attrs.title) },
         };
       }
       default:
@@ -287,10 +322,11 @@ function optionalString(value: unknown): string | null {
 /**
  * Checks Tiptap JSON against the whitelist. On success, returns a rebuilt
  * copy holding only known types and attributes. Empty documents (no text
- * and no images) are rejected.
+ * and no images) are rejected. With `rules.imageBase`, images from anywhere
+ * else are rejected too.
  */
-export function checkPostContent(value: unknown): ContentResult {
-  const checker = new Checker();
+export function checkPostContent(value: unknown, rules: ImageRules = {}): ContentResult {
+  const checker = new Checker(rules);
   try {
     const content = checker.doc(value);
     if (!checker.hasSubstance) {
