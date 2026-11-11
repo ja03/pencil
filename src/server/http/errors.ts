@@ -14,6 +14,8 @@ export class ApiError extends Error {
     readonly code: ErrorCode,
     message: string,
     readonly fields?: FieldErrors,
+    /** Extra response headers, such as `Retry-After` on a 429. */
+    readonly headers?: HeadersInit,
   ) {
     super(message);
     this.name = "ApiError";
@@ -24,7 +26,8 @@ export function errorResponse(
   code: ErrorCode,
   message: string,
   fields?: FieldErrors,
+  headers?: HeadersInit,
 ): Response {
   const body: ApiErrorBody = { error: { code, message, ...(fields && { fields }) } };
-  return Response.json(body, { status: ERROR_STATUS[code] });
+  return Response.json(body, { status: ERROR_STATUS[code], headers });
 }

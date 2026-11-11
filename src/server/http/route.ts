@@ -19,7 +19,7 @@ export function route<Ctx>(handler: Handler<Ctx>): Handler<Ctx> {
       // those through instead of turning them into a 500.
       unstable_rethrow(error);
       if (error instanceof ApiError) {
-        return errorResponse(error.code, error.message, error.fields);
+        return errorResponse(error.code, error.message, error.fields, error.headers);
       }
       if (error instanceof z.ZodError) {
         return errorResponse(
