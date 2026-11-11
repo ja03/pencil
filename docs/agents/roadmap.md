@@ -231,6 +231,7 @@ These are the build phases from the spec, in order, matched to their issues.
 - **Blocked by:** #14 and #28.
 - **Unlocks:** #19.
 - **Watch out:**
+  - Reuse #14's pieces: add `RESET_PASSWORD` to the `EmailTokenPurpose` enum and its 1-hour lifetime to `TOKEN_LIFETIME_MS`, then call `issueToken`/`redeemToken` (`src/server/tokens/`). Send with `sendMail` inside `runInBackground`, as `resendVerification` does, so known and unknown emails get the same reply in the same time. Tests read the link from Mailpit with `tests/helpers/mail.ts`.
   - A reset bumps `tokenVersion`, so the old cookie must get 401 afterwards.
   - The "forgot password" reply never reveals whether the account exists.
 

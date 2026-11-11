@@ -25,10 +25,10 @@ npm run dev
 
 ## Test
 
-Tests call the REST route handlers against the real services from `docker compose`, using a separate `pencil_test` database and `pencil-test` bucket.
+Tests call the REST route handlers against the real services from `docker compose`, using a separate `pencil_test` database and `pencil-test` bucket. Emails the app sends are read back from Mailpit's API.
 
 ```bash
-docker compose up -d postgres minio
+docker compose up -d postgres minio mailpit
 npm test
 ```
 

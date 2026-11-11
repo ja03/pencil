@@ -15,6 +15,11 @@ export function findUserByEmail(email: string): Promise<User | null> {
   return db().user.findUnique({ where: { email } });
 }
 
+/** Records that the user proved they own their email. A user verified earlier keeps the first date. */
+export async function markEmailVerified(id: string, at: Date): Promise<void> {
+  await db().user.updateMany({ where: { id, emailVerifiedAt: null }, data: { emailVerifiedAt: at } });
+}
+
 export type UniqueUserField = "email" | "username";
 
 /** Which of `email` and `username` already belong to an account. */

@@ -22,6 +22,21 @@ const schema = z.object({
   SESSION_SECRET: z.string().min(32),
   /** bcrypt cost factor. Tests lower it to keep hashing fast. */
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
+  /**
+   * Public address of the app, used to build links in emails (never the
+   * request's Host header, which a client can forge).
+   */
+  APP_URL: z
+    .url()
+    .default("http://localhost:3000")
+    .transform((url) => url.replace(/\/+$/, "")),
+  /** SMTP server for all email: Mailpit locally, Mailtrap in production. */
+  SMTP_HOST: z.string().min(1).default("localhost"),
+  SMTP_PORT: z.coerce.number().int().positive().default(1025),
+  /** Empty for Mailpit, which takes mail without logging in. */
+  SMTP_USER: z.string().optional().transform((v) => v || undefined),
+  SMTP_PASS: z.string().optional().transform((v) => v || undefined),
+  MAIL_FROM: z.string().min(1).default("Pencil <no-reply@pencil.local>"),
 });
 
 export type Env = z.infer<typeof schema>;

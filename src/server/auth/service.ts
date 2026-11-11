@@ -1,11 +1,18 @@
 import type { CurrentUser, LoginInput, RegisterInput } from "@/contracts/auth";
 import type { FieldErrors } from "@/contracts/api-error";
+import { runInBackground } from "@/server/background";
+import { clock } from "@/server/clock";
+import { env } from "@/server/env";
 import { ApiError } from "@/server/http/errors";
+import { sendMail } from "@/server/mail/mailer";
+import { verificationEmail } from "@/server/mail/templates";
+import { issueToken, redeemToken } from "@/server/tokens/service";
 import {
   createUser,
   findTakenFields,
   findUserByEmail,
   findUserById,
+  markEmailVerified,
   type UniqueUserField,
   type User,
 } from "@/server/users/repository";
@@ -63,7 +70,50 @@ export async function register({
     passwordHash: await hashPassword(password),
   });
   if (!created.ok) throw takenError(created.taken);
+  sendVerificationEmail(created.user);
   return startSession(created.user);
+}
+
+/** The page an emailed verification link opens. */
+export function verificationLink(token: string): string {
+  return `${env().APP_URL}/verify/confirm?token=${encodeURIComponent(token)}`;
+}
+
+/**
+ * Emails `user` a fresh verification link, after the response. A mail
+ * failure is logged and never fails the request: the user can resend.
+ */
+function sendVerificationEmail(user: User): void {
+  runInBackground("verification email", async () => {
+    const token = await issueToken("VERIFY_EMAIL", user.id);
+    await sendMail(
+      verificationEmail({ to: user.email, username: user.username, link: verificationLink(token) }),
+    );
+  });
+}
+
+/** Marks the token's user verified. A used, expired or unknown token is a 400. */
+export async function verifyEmail(token: string): Promise<void> {
+  const userId = await redeemToken("VERIFY_EMAIL", token);
+  if (!userId) {
+    throw new ApiError(
+      "VALIDATION_FAILED",
+      "This link has expired or was already used. Ask for a new one.",
+    );
+  }
+  await markEmailVerified(userId, clock.now());
+}
+
+/**
+ * Sends a new verification link when `email` belongs to an unverified
+ * account. The lookup happens after the response too, so known, unknown and
+ * already-verified emails get the same reply in the same time.
+ */
+export function resendVerification(email: string): void {
+  runInBackground("resend verification", async () => {
+    const user = await findUserByEmail(email);
+    if (user && user.emailVerifiedAt === null) sendVerificationEmail(user);
+  });
 }
 
 export async function login({ email, password }: LoginInput): Promise<SignedIn> {  const user = await findUserByEmail(email);

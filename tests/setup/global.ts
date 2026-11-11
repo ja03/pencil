@@ -6,10 +6,11 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { publicReadPolicy } from "../../src/server/storage";
-import { testEnv } from "./env";
+import { MAILPIT_URL, testEnv } from "./env";
 
 // Runs once before the whole suite: bring the test database to the latest
-// migration and make sure the test bucket exists and serves images publicly.
+// migration, make sure the test bucket exists and serves images publicly, and
+// empty Mailpit so earlier runs' emails can't be mistaken for this run's.
 export default async function setup() {
   execFileSync("npx", ["prisma", "migrate", "deploy"], {
     env: { ...process.env, ...testEnv },
@@ -37,4 +38,13 @@ export default async function setup() {
     }),
   );
   s3.destroy();
+
+  const cleared = await fetch(`${MAILPIT_URL}/api/v1/messages`, { method: "DELETE" }).catch(
+    (error: unknown) => error,
+  );
+  if (!(cleared instanceof Response) || !cleared.ok) {
+    throw new Error(
+      `Mailpit isn't reachable at ${MAILPIT_URL}. Start it with \`docker compose up -d mailpit\`.`,
+    );
+  }
 }

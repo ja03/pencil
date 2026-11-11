@@ -39,6 +39,24 @@ export const loginInput = z.object({
 });
 export type LoginInput = z.infer<typeof loginInput>;
 
+export const verifyEmailInput = z.object({
+  token: z.string().min(1, "This link is missing its token.").max(200),
+});
+export type VerifyEmailInput = z.infer<typeof verifyEmailInput>;
+
+/** After verifying: whoever is signed in on this browser, if anyone, as they are now. */
+export type VerifyEmailResponse = { user: CurrentUser | null };
+
+export const resendVerificationInput = z.object({ email });
+export type ResendVerificationInput = z.infer<typeof resendVerificationInput>;
+
+/**
+ * The only reply resend ever gives, so it never reveals whether an account
+ * exists or is already verified.
+ */
+export const RESEND_VERIFICATION_REPLY = "If that email exists, we sent a link.";
+export type ResendVerificationResponse = { message: typeof RESEND_VERIFICATION_REPLY };
+
 /** The signed-in user as the API and client see it. Never includes secrets. */
 export type CurrentUser = {
   id: string;

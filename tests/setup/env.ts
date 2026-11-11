@@ -19,4 +19,11 @@ export const testEnv = {
   SESSION_SECRET: "test-session-secret-0123456789-abcdefghijkl",
   // The lowest bcrypt cost, so hashing doesn't dominate test time.
   BCRYPT_ROUNDS: "4",
+  APP_URL: "http://pencil.test",
+  SMTP_HOST: process.env.TEST_SMTP_HOST ?? "localhost",
+  SMTP_PORT: process.env.TEST_SMTP_PORT ?? "1025",
+  MAIL_FROM: "Pencil <no-reply@pencil.test>",
 } as const;
+
+/** Mailpit's HTTP API, where tests read the emails the app sent. */
+export const MAILPIT_URL = process.env.TEST_MAILPIT_URL ?? "http://localhost:8025";

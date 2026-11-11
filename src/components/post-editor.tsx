@@ -26,6 +26,7 @@ import { CoverField } from "./cover-field";
 import { ImageUploads, insertUploadedImage, type ImageUploadHandlers } from "./image-uploads";
 import { TagInput } from "./tag-input";
 import { useToast } from "./toaster";
+import { VerifyBanner } from "./verify-banner";
 
 const label = "label-mono text-[10px] tracking-[0.1em] text-mut";
 const button =
@@ -237,11 +238,7 @@ export function PostEditor({
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg text-ink">
-      {!verified && !published && (
-        <p className="m-0 bg-warn-bg px-5 py-2.5 text-center text-[13px] text-warn-ink">
-          {VERIFY_TO_PUBLISH}
-        </p>
-      )}
+      {!published && <VerifyBanner message={VERIFY_TO_PUBLISH} />}
       <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-line bg-surf px-3 py-2.5 sm:px-8 sm:py-3.5">
         <div className="flex min-w-0 items-center gap-3">
           <Link

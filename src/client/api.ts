@@ -1,6 +1,14 @@
 import { createApi, fetchBaseQuery, type FetchBaseQueryError } from "@reduxjs/toolkit/query/react";
 import type { ApiErrorBody } from "@/contracts/api-error";
-import type { AuthResponse, LoginInput, RegisterInput } from "@/contracts/auth";
+import type {
+  AuthResponse,
+  LoginInput,
+  RegisterInput,
+  ResendVerificationInput,
+  ResendVerificationResponse,
+  VerifyEmailInput,
+  VerifyEmailResponse,
+} from "@/contracts/auth";
 
 /** RTK Query client for Pencil's REST API. Later tickets inject their endpoints. */
 export const api = createApi({
@@ -16,10 +24,22 @@ export const api = createApi({
     logout: build.mutation<void, void>({
       query: () => ({ url: "/auth/logout", method: "POST" }),
     }),
+    verifyEmail: build.mutation<VerifyEmailResponse, VerifyEmailInput>({
+      query: (body) => ({ url: "/auth/verify-email", method: "POST", body }),
+    }),
+    resendVerification: build.mutation<ResendVerificationResponse, ResendVerificationInput>({
+      query: (body) => ({ url: "/auth/resend-verification", method: "POST", body }),
+    }),
   }),
 });
 
-export const { useRegisterMutation, useLoginMutation, useLogoutMutation } = api;
+export const {
+  useRegisterMutation,
+  useLoginMutation,
+  useLogoutMutation,
+  useVerifyEmailMutation,
+  useResendVerificationMutation,
+} = api;
 
 /** The shared error body from a failed request, or null for network and other errors. */
 export function apiErrorOf(error: unknown): ApiErrorBody["error"] | null {
