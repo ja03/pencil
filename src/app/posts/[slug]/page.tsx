@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { longDate } from "@/client/format";
 import { PostCover } from "@/components/post-cover";
 import type { Post } from "@/contracts/posts";
+import { tagPath } from "@/contracts/tags";
 import { getCurrentUser } from "@/server/auth/service";
 import { findPostBySlug } from "@/server/posts/service";
 
@@ -55,6 +56,20 @@ function PostArticle({ post, isAuthor }: { post: Post; isAuthor: boolean }) {
       )}
 
       <header className="flex w-full max-w-[760px] flex-col gap-[22px]">
+        {post.tags.length > 0 && (
+          <ul aria-label="Tags" className="m-0 flex list-none flex-wrap gap-2 p-0">
+            {post.tags.map((tag) => (
+              <li key={tag}>
+                <Link
+                  href={tagPath(tag)}
+                  className="label-mono flex min-h-8 items-center rounded-full border border-line px-3 text-[11px] tracking-[0.08em] text-acc no-underline hover:bg-soft"
+                >
+                  #{tag}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
         <h1 className="m-0 font-serif text-[40px] leading-[1.04] font-normal tracking-[-0.02em] break-words sm:text-[64px]">
           {post.title}
         </h1>

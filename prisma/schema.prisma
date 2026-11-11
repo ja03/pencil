@@ -51,9 +51,36 @@ model Post {
   deletedAt      DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  tags           PostTag[]
 
   @@index([authorId])
   /// The feed's keyset: newest published first, id breaks ties.
   @@index([publishedAt, id])
   @@map("posts")
+}
+
+/// A topic shared by every post that uses it. "React" and "react" are one tag.
+model Tag {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  /// Normalized: lowercase letters and numbers joined by hyphens (see contracts/tags.ts).
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  posts     PostTag[]
+
+  @@map("tags")
+}
+
+/// A post's tags, at most 5, in the order the author gave them.
+model PostTag {
+  postId   String @db.Uuid
+  post     Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tagId    String @db.Uuid
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  /// 0-based place in the author's list.
+  position Int
+
+  @@id([postId, tagId])
+  /// Tag pages find posts by tag.
+  @@index([tagId])
+  @@map("post_tags")
 }

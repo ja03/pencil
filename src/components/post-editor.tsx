@@ -25,6 +25,7 @@ import {
   TITLE_MAX_LENGTH,
   type Post,
 } from "@/contracts/posts";
+import { TagInput } from "./tag-input";
 import { useToast } from "./toaster";
 
 const label = "label-mono text-[10px] tracking-[0.1em] text-mut";
@@ -42,7 +43,14 @@ const VERIFY_TO_PUBLISH = "Verify your email to publish. You can keep writing dr
  * it warns before leaving with unsaved changes and reports every save,
  * publish or failure with a toast.
  */
-export function PostEditor({ initial }: { initial: Post | null }) {
+export function PostEditor({
+  initial,
+  initialTags = [],
+}: {
+  initial: Post | null;
+  /** Tags for a new post, such as the one a tag page's "Write with this tag" passes. */
+  initialTags?: string[];
+}) {
   const router = useRouter();
   const toast = useToast();
   const verified = useAppSelector(selectCurrentUser)?.emailVerified ?? false;
@@ -55,6 +63,7 @@ export function PostEditor({ initial }: { initial: Post | null }) {
   const [publishing, setPublishing] = useState(false);
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
+  const [tags, setTags] = useState(initial?.tags ?? initialTags);
   const [fields, setFields] = useState<FieldErrors>({});
   const [saving, setSaving] = useState(false);
   // Every edit bumps `version`; a save records the version it sent, so edits
@@ -101,7 +110,7 @@ export function PostEditor({ initial }: { initial: Post | null }) {
   /** Saves the post; resolves to the saved post, or null when it wasn't saved. */
   const save = useCallback(async (): Promise<Post | null> => {
     if (!editor || saving) return null;
-    const body = { title, description, content: editor.getJSON() };
+    const body = { title, description, tags, content: editor.getJSON() };
     // Same schema the API validates with, so most mistakes show before a round trip.
     const parsed = createPostInput.safeParse(body);
     if (!parsed.success) {
@@ -141,7 +150,7 @@ export function PostEditor({ initial }: { initial: Post | null }) {
     } finally {
       setSaving(false);
     }
-  }, [editor, saving, title, description, version, postId, updatePost, createPost, toast]);
+  }, [editor, saving, title, description, tags, version, postId, updatePost, createPost, toast]);
 
   useEffect(() => {
     saveRef.current = save;
@@ -296,6 +305,15 @@ export function PostEditor({ initial }: { initial: Post | null }) {
             className={`resize-y rounded-xl border bg-surf px-3.5 py-3 text-[15px] leading-[1.55] text-ink outline-none placeholder:text-mut focus:ring-2 focus:ring-acc/40 ${fields.description ? "border-err-ink" : "border-line"}`}
           />
         </Field>
+
+        <TagInput
+          tags={tags}
+          onChange={(next) => {
+            setTags(next);
+            changed();
+          }}
+          errors={fields.tags}
+        />
 
         <div className="flex flex-col gap-1.5">
           <div
@@ -499,5 +517,20 @@ function LeaveDialog({
         </div>
       </div>
     </dialog>
+  );
+}
+
+/** The editor's shape while the post (or the page's request data) loads. */
+export function EditorSkeleton() {
+  const bar = "rounded-lg bg-soft";
+  return (
+    <div aria-busy="true" aria-label="Loading your post" className="flex min-h-dvh flex-col bg-bg">
+      <div className="h-[73px] border-b border-line bg-surf" />
+      <div className="mx-auto flex w-full max-w-[820px] flex-col gap-6 px-4 pt-6 sm:px-8 sm:pt-12">
+        <span className={`${bar} h-12 w-4/5`} />
+        <span className={`${bar} h-20 w-full`} />
+        <span className={`${bar} h-80 w-full rounded-[18px]`} />
+      </div>
+    </div>
   );
 }

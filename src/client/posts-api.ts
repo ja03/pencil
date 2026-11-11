@@ -4,7 +4,15 @@ import type {
   PostResponse,
   UpdatePostBody,
 } from "@/contracts/posts";
+import type { TagSuggestionsResponse } from "@/contracts/tags";
 import { api } from "./api";
+
+/**
+ * Which list to page through, and the cursor its server-rendered first page
+ * ended on. The cursor is part of the key, so each server render gets its own
+ * cache entry and pages never mix across refreshes.
+ */
+export type PostListArg = { after: string; tag?: string };
 
 const LIST = { type: "Post", id: "LIST" } as const;
 
@@ -23,18 +31,22 @@ export const postsApi = api.enhanceEndpoints({ addTagTypes: ["Post"] }).injectEn
       query: (id) => ({ url: `/posts/${id}/publish`, method: "POST" }),
       invalidatesTags: (_result, _error, id) => [{ type: "Post", id }, LIST],
     }),
-    /**
-     * The feed after its server-rendered first page. The argument is the
-     * cursor that page ended on, so each server render gets its own cache
-     * entry and pages never mix across refreshes.
-     */
-    getFeed: build.infiniteQuery<FeedResponse, string, string>({
+    /** The feed, or a tag page, after its server-rendered first page. */
+    getFeed: build.infiniteQuery<FeedResponse, PostListArg, string>({
       infiniteQueryOptions: {
         initialPageParam: "",
         getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
       },
-      query: ({ pageParam }) => ({ url: "/posts", params: { cursor: pageParam } }),
+      query: ({ queryArg, pageParam }) => ({
+        url: queryArg.tag ? `/tags/${encodeURIComponent(queryArg.tag)}/posts` : "/posts",
+        params: { cursor: pageParam },
+      }),
       providesTags: [LIST],
+    }),
+    /** Existing tags starting with the query, for the editor's autocomplete. */
+    searchTags: build.query<TagSuggestionsResponse, string>({
+      query: (q) => ({ url: "/tags", params: { q } }),
+      keepUnusedDataFor: 30,
     }),
   }),
 });
@@ -44,4 +56,5 @@ export const {
   useUpdatePostMutation,
   usePublishPostMutation,
   useGetFeedInfiniteQuery,
+  useSearchTagsQuery,
 } = postsApi;

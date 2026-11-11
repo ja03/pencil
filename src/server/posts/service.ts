@@ -8,6 +8,7 @@ import {
   type PostSummary,
   type UpdatePostInput,
 } from "@/contracts/posts";
+import { normalizeTag, TAG_SUGGESTION_LIMIT, type TagSuggestionsResponse } from "@/contracts/tags";
 import { clock } from "@/server/clock";
 import { ApiError } from "@/server/http/errors";
 import { encodeCursor, type FeedPosition } from "./cursor";
@@ -18,6 +19,8 @@ import * as posts from "./repository";
 import { slugify } from "./slug";
 
 const NOT_FOUND = "That post doesn't exist.";
+
+const namesOf = (tags: { tag: { name: string } }[]) => tags.map((t) => t.tag.name);
 
 function toPost(row: posts.PostRow): Post {
   const content = row.content as PostContent;
@@ -31,6 +34,7 @@ function toPost(row: posts.PostRow): Post {
     html: renderPostContent(content),
     coverUrl: row.coverUrl,
     readingMinutes: row.readingMinutes,
+    tags: namesOf(row.tags),
     status: row.publishedAt ? "published" : "draft",
     publishedAt: row.publishedAt?.toISOString() ?? null,
     editedAt: row.editedAt?.toISOString() ?? null,
@@ -48,6 +52,7 @@ function toSummary(row: posts.PostSummaryRow): PostSummary {
     summary: row.description ?? row.excerpt,
     coverUrl: row.coverUrl,
     readingMinutes: row.readingMinutes,
+    tags: namesOf(row.tags),
     publishedAt: row.publishedAt.toISOString(),
     editedAt: row.editedAt?.toISOString() ?? null,
     author: row.author,
@@ -84,6 +89,7 @@ export async function createDraft(author: CurrentUser, input: CreatePostInput): 
     excerpt: excerptOf(input.content),
     readingMinutes: readingMinutesOf(input.content),
     content: input.content,
+    tags: input.tags,
   });
   return toPost(row);
 }
@@ -121,8 +127,12 @@ function sameJson(a: unknown, b: unknown): boolean {
   );
 }
 
+function sameList(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((item, i) => item === b[i]);
+}
+
 /**
- * Edits a post's title, description or content. The slug never changes, and
+ * Edits a post's title, description, content or tags. The slug never changes, and
  * neither does `publishedAt`: an actual change to a published post marks it
  * edited instead. Only the author may edit: others get 404 for a draft and
  * 403 for a published post.
@@ -136,7 +146,8 @@ export async function updatePost(
   const changed =
     (input.title !== undefined && input.title !== row.title) ||
     (input.description !== undefined && input.description !== row.description) ||
-    (input.content !== undefined && !sameJson(input.content, row.content));
+    (input.content !== undefined && !sameJson(input.content, row.content)) ||
+    (input.tags !== undefined && !sameList(input.tags, namesOf(row.tags)));
   const updated = await posts.updatePost(id, {
     title: input.title,
     description: input.description,
@@ -145,6 +156,7 @@ export async function updatePost(
       excerpt: excerptOf(input.content),
       readingMinutes: readingMinutesOf(input.content),
     }),
+    tags: input.tags,
     ...(changed && row.publishedAt && { editedAt: clock.now() }),
   });
   return toPost(updated);
@@ -163,15 +175,42 @@ export async function publishPost(user: CurrentUser, id: string): Promise<Post> 
 
 /**
  * One page of published posts, newest first, after `after` (null for the
- * first page). Readable without an account.
+ * first page), optionally only those with a tag. Readable without an account.
  */
-export async function listPublished(after: FeedPosition | null): Promise<FeedResponse> {
+export async function listPublished(
+  after: FeedPosition | null,
+  filter: posts.PostListFilter = {},
+): Promise<FeedResponse> {
   // One extra row says whether another page exists without a count query.
-  const rows = await posts.findPublishedPage(after, FEED_PAGE_SIZE + 1);
+  const rows = await posts.findPublishedPage(after, FEED_PAGE_SIZE + 1, filter);
   const page = rows.slice(0, FEED_PAGE_SIZE);
   const last = page.at(-1);
   return {
     posts: page.map(toSummary),
     nextCursor: rows.length > FEED_PAGE_SIZE && last ? encodeCursor(last) : null,
   };
+}
+
+/** How many published posts a tag page lists in all. */
+export function countTagged(tag: string): Promise<number> {
+  return posts.countPublishedWithTag(tag);
+}
+
+/**
+ * Existing tags to offer while an author types `query`: those starting with
+ * it, most used first; the most used overall when it is blank. Input that
+ * can't begin a tag matches nothing.
+ */
+export async function suggestTags(query: string): Promise<TagSuggestionsResponse> {
+  const trimmed = query.trim();
+  // A trailing separator ("machine ") is the start of a longer tag.
+  const open = /[\s_-]$/.test(trimmed);
+  const base = trimmed.replace(/[\s_-]+$/, "");
+  if (base === "" || base === "#") {
+    return { tags: await posts.findTagsByPrefix("", TAG_SUGGESTION_LIMIT) };
+  }
+  const tag = normalizeTag(base);
+  if (!tag) return { tags: [] };
+  const prefix = open ? `${tag}-` : tag;
+  return { tags: await posts.findTagsByPrefix(prefix, TAG_SUGGESTION_LIMIT) };
 }

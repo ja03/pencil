@@ -7,14 +7,28 @@ import { PostCard, PostCardSkeleton } from "./post-card";
 
 export const FEED_GRID = "grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3";
 
+/** Card placeholders while a list's first page loads. */
+export function FeedSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading posts" className={FEED_GRID}>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className={i > 0 ? "hidden md:block" : undefined}>
+          <PostCardSkeleton />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
- * The feed's cards. The first page arrives rendered from the server; later
- * pages load through the API as the reader nears the end of the list.
+ * A list of post cards: the feed, or a tag page when `tag` is set. The first
+ * page arrives rendered from the server; later pages load through the API as
+ * the reader nears the end of the list.
  */
-export function FeedList({ initial }: { initial: FeedResponse }) {
+export function FeedList({ initial, tag }: { initial: FeedResponse; tag?: string }) {
   // Nothing is fetched until the reader scrolls near the end.
   const [started, setStarted] = useState(false);
-  const feed = useGetFeedInfiniteQuery(initial.nextCursor ?? "", {
+  const feed = useGetFeedInfiniteQuery({ after: initial.nextCursor ?? "", tag }, {
     skip: !started || !initial.nextCursor,
     initialPageParam: initial.nextCursor ?? "",
   });

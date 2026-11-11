@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { shortDate } from "@/client/format";
 import type { PostSummary } from "@/contracts/posts";
+import { tagPath } from "@/contracts/tags";
 import { PostCover } from "./post-cover";
 
-/** A feed card: cover, reading time, title, summary, author and date. */
+/** A feed card: cover, reading time, tags, title, summary, author and date. */
 export function PostCard({ post }: { post: PostSummary }) {
   const href = `/posts/${post.slug}`;
   return (
@@ -20,6 +21,20 @@ export function PostCard({ post }: { post: PostSummary }) {
         </span>
       </Link>
       <div className="flex flex-1 flex-col gap-2.5 px-1.5 pb-1.5">
+        {post.tags.length > 0 && (
+          <ul aria-label="Tags" className="m-0 flex list-none flex-wrap gap-x-2.5 gap-y-1 p-0">
+            {post.tags.map((tag) => (
+              <li key={tag}>
+                <Link
+                  href={tagPath(tag)}
+                  className="label-mono text-[10px] tracking-[0.08em] text-acc no-underline hover:underline"
+                >
+                  #{tag}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
         <h3 className="m-0 font-serif text-2xl leading-[1.15] font-normal tracking-[-0.01em]">
           <Link href={href} className="text-ink no-underline hover:underline">
             {post.title}

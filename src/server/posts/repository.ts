@@ -4,18 +4,25 @@ import { db } from "@/server/db";
 import type { FeedPosition } from "./cursor";
 import { firstFreeSlug } from "./slug";
 
-const withAuthor = { author: { select: { id: true, username: true } } } as const;
+const author = { author: { select: { id: true, username: true } } } as const;
 
-export type PostRow = Prisma.PostGetPayload<{ include: typeof withAuthor }>;
+/** A post's tag names, in the author's order. */
+const tagNames = {
+  tags: { select: { tag: { select: { name: true } } }, orderBy: { position: "asc" } },
+} as const;
+
+const withAuthorAndTags = { ...author, ...tagNames } as const;
+
+export type PostRow = Prisma.PostGetPayload<{ include: typeof withAuthorAndTags }>;
 
 /** A post that hasn't been deleted, with its author. Drafts included. */
 export function findPostById(id: string): Promise<PostRow | null> {
-  return db().post.findFirst({ where: { id, deletedAt: null }, include: withAuthor });
+  return db().post.findFirst({ where: { id, deletedAt: null }, include: withAuthorAndTags });
 }
 
 /** A post that hasn't been deleted, by its slug, with its author. Drafts included. */
 export function findPostBySlug(slug: string): Promise<PostRow | null> {
-  return db().post.findFirst({ where: { slug, deletedAt: null }, include: withAuthor });
+  return db().post.findFirst({ where: { slug, deletedAt: null }, include: withAuthorAndTags });
 }
 
 /** Slugs already in use that `base` could collide with: `base` and `base-…`. */
@@ -34,6 +41,23 @@ function isSlugConflict(error: unknown): boolean {
   return JSON.stringify(error.meta ?? {}).includes("slug");
 }
 
+/**
+ * The ids of the tags called `names`, creating any that don't exist yet.
+ * ON CONFLICT DO NOTHING makes concurrent posts adding the same new tag safe.
+ */
+async function tagIdsFor(names: string[]): Promise<string[]> {
+  if (names.length === 0) return [];
+  await db().tag.createMany({ data: names.map((name) => ({ name })), skipDuplicates: true });
+  const rows = await db().tag.findMany({ where: { name: { in: names } } });
+  const ids = new Map(rows.map((row) => [row.name, row.id]));
+  return names.map((name) => ids.get(name)!);
+}
+
+/** Nested-write rows linking a post to `names`, keeping their order. */
+async function postTagRows(names: string[]) {
+  return (await tagIdsFor(names)).map((tagId, position) => ({ tagId, position }));
+}
+
 export type NewPost = {
   authorId: string;
   title: string;
@@ -41,6 +65,8 @@ export type NewPost = {
   excerpt: string;
   readingMinutes: number;
   content: PostContent;
+  /** Normalized tag names, in order. */
+  tags: string[];
 };
 
 /**
@@ -49,12 +75,19 @@ export type NewPost = {
  * next one.
  */
 export async function createPost(baseSlug: string, data: NewPost): Promise<PostRow> {
+  const { tags, ...fields } = data;
+  const tagRows = await postTagRows(tags);
   for (let attempt = 1; ; attempt++) {
     const slug = firstFreeSlug(baseSlug, await slugsLike(baseSlug));
     try {
       return await db().post.create({
-        data: { ...data, content: data.content as Prisma.InputJsonValue, slug },
-        include: withAuthor,
+        data: {
+          ...fields,
+          content: fields.content as Prisma.InputJsonValue,
+          slug,
+          tags: { create: tagRows },
+        },
+        include: withAuthorAndTags,
       });
     } catch (error) {
       if (!isSlugConflict(error) || attempt >= 5) throw error;
@@ -68,16 +101,25 @@ export type PostChanges = {
   excerpt?: string;
   readingMinutes?: number;
   content?: PostContent;
+  /** Replaces every tag on the post. */
+  tags?: string[];
   editedAt?: Date;
 };
 
-/** Updates the given fields. The slug is never among them. */
-export function updatePost(id: string, changes: PostChanges): Promise<PostRow> {
-  const { content, ...rest } = changes;
+/**
+ * Updates the given fields. The slug is never among them. A new tag list
+ * replaces the old one in the same statement as the other changes.
+ */
+export async function updatePost(id: string, changes: PostChanges): Promise<PostRow> {
+  const { content, tags, ...rest } = changes;
   return db().post.update({
     where: { id },
-    data: { ...rest, ...(content && { content: content as Prisma.InputJsonValue }) },
-    include: withAuthor,
+    data: {
+      ...rest,
+      ...(content && { content: content as Prisma.InputJsonValue }),
+      ...(tags && { tags: { deleteMany: {}, create: await postTagRows(tags) } }),
+    },
+    include: withAuthorAndTags,
   });
 }
 
@@ -88,7 +130,7 @@ export function updatePost(id: string, changes: PostChanges): Promise<PostRow> {
  */
 export async function publishPost(id: string, at: Date): Promise<PostRow> {
   await db().post.updateMany({ where: { id, publishedAt: null }, data: { publishedAt: at } });
-  return db().post.findUniqueOrThrow({ where: { id }, include: withAuthor });
+  return db().post.findUniqueOrThrow({ where: { id }, include: withAuthorAndTags });
 }
 
 const summaryFields = {
@@ -101,8 +143,16 @@ const summaryFields = {
   readingMinutes: true,
   publishedAt: true,
   editedAt: true,
-  ...withAuthor,
+  ...withAuthorAndTags,
 } as const;
+
+/** What a post list can be narrowed to. */
+export type PostListFilter = {
+  /** Only posts with this (normalized) tag. */
+  tag?: string;
+};
+
+const PUBLISHED = { publishedAt: { not: null }, deletedAt: null } as const;
 
 export type PostSummaryRow = Prisma.PostGetPayload<{ select: typeof summaryFields }> & {
   publishedAt: Date;
@@ -110,19 +160,19 @@ export type PostSummaryRow = Prisma.PostGetPayload<{ select: typeof summaryField
 
 /**
  * One page of published, non-deleted posts, newest published first, starting
- * after `after` (keyset paging on publishedAt, then id). Tag and profile
- * lists narrow it with `where`.
+ * after `after` (keyset paging on publishedAt, then id). Tag pages narrow it
+ * with `filter`.
  */
 export async function findPublishedPage(
   after: FeedPosition | null,
   take: number,
-  where: Prisma.PostWhereInput = {},
+  filter: PostListFilter = {},
 ): Promise<PostSummaryRow[]> {
   const rows = await db().post.findMany({
     where: {
       AND: [
-        where,
-        { publishedAt: { not: null }, deletedAt: null },
+        filter.tag ? { tags: { some: { tag: { name: filter.tag } } } } : {},
+        PUBLISHED,
         after
           ? {
               OR: [
@@ -138,4 +188,35 @@ export async function findPublishedPage(
     select: summaryFields,
   });
   return rows as PostSummaryRow[];
+}
+
+/** How many published, non-deleted posts carry `tag`. */
+export function countPublishedWithTag(tag: string): Promise<number> {
+  return db().post.count({ where: { ...PUBLISHED, tags: { some: { tag: { name: tag } } } } });
+}
+
+export type TagUsage = { name: string; postCount: number };
+
+/** `text` with LIKE's wildcards escaped, so it matches only itself. */
+function likeLiteral(text: string): string {
+  return text.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+/**
+ * Tags whose name starts with `prefix`, with how many published,
+ * non-deleted posts use each; most used first. Tags used only on drafts or
+ * deleted posts are left out, so a private draft never leaks its tags.
+ */
+export function findTagsByPrefix(prefix: string, take: number): Promise<TagUsage[]> {
+  return db().$queryRaw<TagUsage[]>`
+    SELECT t.name, COUNT(*)::int AS "postCount"
+    FROM tags t
+    JOIN post_tags pt ON pt."tagId" = t.id
+    JOIN posts p ON p.id = pt."postId"
+    WHERE p."publishedAt" IS NOT NULL
+      AND p."deletedAt" IS NULL
+      AND t.name LIKE ${likeLiteral(prefix) + "%"}
+    GROUP BY t.name
+    ORDER BY "postCount" DESC, t.name ASC
+    LIMIT ${take}`;
 }
