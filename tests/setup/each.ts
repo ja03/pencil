@@ -1,9 +1,16 @@
-import { afterAll, beforeEach } from "vitest";
+import { afterAll, afterEach, beforeEach } from "vitest";
+import { setClock } from "@/server/clock";
 import { db } from "@/server/db";
+import { resetRateLimiters } from "@/server/rate-limit/limits";
 import { resetDatabase } from "../helpers/db";
 
 beforeEach(async () => {
   await resetDatabase();
+  resetRateLimiters();
+});
+
+afterEach(() => {
+  setClock();
 });
 
 afterAll(async () => {
