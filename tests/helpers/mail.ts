@@ -25,11 +25,21 @@ async function textOf(id: string): Promise<string> {
   return ((await res.json()) as { Text: string }).Text;
 }
 
-/** The token in the newest verification email sent to `address`. Fails the test if there is none. */
-export async function verificationTokenFor(address: string): Promise<string> {
+/**
+ * The token in the link to `path` in the newest email sent to `address`.
+ * Fails the test if there is no email, or it has no such link.
+ */
+async function linkTokenFor(address: string, path: string): Promise<string> {
   const [latest] = await emailsTo(address);
   expect(latest, `no email was sent to ${address}`).toBeDefined();
-  const link = (await textOf(latest.ID)).match(/\S+\/verify\/confirm\?token=\S+/)?.[0];
-  expect(link, "the email has no verification link").toBeDefined();
+  const pattern = new RegExp(`\\S+${path}\\?token=\\S+`);
+  const link = (await textOf(latest.ID)).match(pattern)?.[0];
+  expect(link, `the email has no ${path} link`).toBeDefined();
   return new URL(link!).searchParams.get("token")!;
 }
+
+/** The token in the newest verification email sent to `address`. */
+export const verificationTokenFor = (address: string) => linkTokenFor(address, "/verify/confirm");
+
+/** The token in the newest password reset email sent to `address`. */
+export const resetTokenFor = (address: string) => linkTokenFor(address, "/reset-password");

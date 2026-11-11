@@ -1,11 +1,16 @@
-import type { CurrentUser, LoginInput, RegisterInput } from "@/contracts/auth";
+import type {
+  CurrentUser,
+  LoginInput,
+  RegisterInput,
+  ResetPasswordInput,
+} from "@/contracts/auth";
 import type { FieldErrors } from "@/contracts/api-error";
 import { runInBackground } from "@/server/background";
 import { clock } from "@/server/clock";
 import { env } from "@/server/env";
 import { ApiError } from "@/server/http/errors";
 import { sendMail } from "@/server/mail/mailer";
-import { verificationEmail } from "@/server/mail/templates";
+import { passwordResetEmail, verificationEmail } from "@/server/mail/templates";
 import { issueToken, redeemToken } from "@/server/tokens/service";
 import {
   createUser,
@@ -13,6 +18,7 @@ import {
   findUserByEmail,
   findUserById,
   markEmailVerified,
+  replacePassword,
   type UniqueUserField,
   type User,
 } from "@/server/users/repository";
@@ -116,7 +122,46 @@ export function resendVerification(email: string): void {
   });
 }
 
-export async function login({ email, password }: LoginInput): Promise<SignedIn> {  const user = await findUserByEmail(email);
+/** The page an emailed reset link opens. */
+export function passwordResetLink(token: string): string {
+  return `${env().APP_URL}/reset-password?token=${encodeURIComponent(token)}`;
+}
+
+/**
+ * Emails a reset link when `email` belongs to an account. Like resend, the
+ * lookup and the send happen after the response, so known and unknown emails
+ * get the same reply in the same time.
+ */
+export function forgotPassword(email: string): void {
+  runInBackground("password reset email", async () => {
+    const user = await findUserByEmail(email);
+    if (!user) return;
+    const token = await issueToken("RESET_PASSWORD", user.id);
+    await sendMail(
+      passwordResetEmail({ to: user.email, username: user.username, link: passwordResetLink(token) }),
+    );
+  });
+}
+
+/**
+ * Sets the new password from a reset link and signs this browser in. Bumping
+ * `tokenVersion` logs out every other session, so whoever knew the old
+ * password loses access. A used, expired or unknown token is a 400.
+ */
+export async function resetPassword({ token, password }: ResetPasswordInput): Promise<SignedIn> {
+  const userId = await redeemToken("RESET_PASSWORD", token);
+  if (!userId) {
+    throw new ApiError(
+      "VALIDATION_FAILED",
+      "This link has expired or was already used. Ask for a new one.",
+    );
+  }
+  const user = await replacePassword(userId, await hashPassword(password));
+  return startSession(user);
+}
+
+export async function login({ email, password }: LoginInput): Promise<SignedIn> {
+  const user = await findUserByEmail(email);
   // Same check, same error, whether or not the account exists.
   if (!(await verifyPassword(password, user?.passwordHash)) || !user) {
     throw new ApiError("UNAUTHENTICATED", "That email and password don't match.");
@@ -124,12 +169,12 @@ export async function login({ email, password }: LoginInput): Promise<SignedIn> 
   return startSession(user);
 }
 
-type SessionState =
+type SessionState<U> =
   | { status: "signed-out" }
   | { status: "stale" }
-  | { status: "signed-in"; user: User };
+  | { status: "signed-in"; user: U };
 
-async function readSession(cookies: CookieReader): Promise<SessionState> {
+async function readSession(cookies: CookieReader): Promise<SessionState<User>> {
   const claims = await verifySession(cookies.get(SESSION_COOKIE)?.value);
   if (!claims) return { status: "signed-out" };
   const user = await findUserById(claims.userId);
@@ -137,6 +182,18 @@ async function readSession(cookies: CookieReader): Promise<SessionState> {
   // takeover), makes every token issued before it worthless.
   if (!user || user.tokenVersion !== claims.tokenVersion) return { status: "stale" };
   return { status: "signed-in", user };
+}
+
+/**
+ * Like `getCurrentUser`, but tells a visitor who never signed in apart from
+ * one whose session was revoked (deleted user, bumped tokenVersion), so pages
+ * can show the session-expired screen.
+ */
+export async function getSession(cookies: CookieReader): Promise<SessionState<CurrentUser>> {
+  const session = await readSession(cookies);
+  return session.status === "signed-in"
+    ? { status: "signed-in", user: toCurrentUser(session.user) }
+    : session;
 }
 
 /**

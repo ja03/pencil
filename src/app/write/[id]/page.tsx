@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
 import { EditorSkeleton, PostEditor } from "@/components/post-editor";
-import { getCurrentUser } from "@/server/auth/service";
+import { requirePageUser } from "@/server/auth/page-guard";
 import { findOwnPost } from "@/server/posts/service";
 import { storageImageRules } from "@/server/uploads/service";
 
@@ -23,9 +23,7 @@ export default function EditPostPage({ params }: PageProps<"/write/[id]">) {
 
 async function EditPost({ params }: Pick<PageProps<"/write/[id]">, "params">) {
   const { id } = await params;
-  const user = await getCurrentUser(await cookies());
-  // The proxy only checks the token; a revoked session lands here.
-  if (!user) redirect(`/login?next=${encodeURIComponent(`/write/${id}`)}`);
+  const user = await requirePageUser(await cookies(), `/write/${id}`);
   const postId = z.uuid().safeParse(id);
   const post = postId.success ? await findOwnPost(user, postId.data) : null;
   if (!post) notFound();

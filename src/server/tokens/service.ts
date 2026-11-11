@@ -7,6 +7,7 @@ const HOUR = 60 * 60 * 1000;
 /** How long an emailed link works after it is sent. */
 export const TOKEN_LIFETIME_MS: Record<EmailTokenPurpose, number> = {
   VERIFY_EMAIL: 24 * HOUR,
+  RESET_PASSWORD: HOUR,
 };
 
 /**

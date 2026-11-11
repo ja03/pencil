@@ -135,9 +135,11 @@ model Comment {
   @@map("comments")
 }
 
-/// What an emailed token proves. #15 adds password reset.
+/// What an emailed token proves: that the user owns their address, or that
+/// they may choose a new password.
 enum EmailTokenPurpose {
   VERIFY_EMAIL
+  RESET_PASSWORD
 }
 
 /// A single-use link emailed to a user. Only the SHA-256 of the token is

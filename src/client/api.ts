@@ -2,8 +2,11 @@ import { createApi, fetchBaseQuery, type FetchBaseQueryError } from "@reduxjs/to
 import type { ApiErrorBody } from "@/contracts/api-error";
 import type {
   AuthResponse,
+  ForgotPasswordInput,
+  ForgotPasswordResponse,
   LoginInput,
   RegisterInput,
+  ResetPasswordInput,
   ResendVerificationInput,
   ResendVerificationResponse,
   VerifyEmailInput,
@@ -30,6 +33,12 @@ export const api = createApi({
     resendVerification: build.mutation<ResendVerificationResponse, ResendVerificationInput>({
       query: (body) => ({ url: "/auth/resend-verification", method: "POST", body }),
     }),
+    forgotPassword: build.mutation<ForgotPasswordResponse, ForgotPasswordInput>({
+      query: (body) => ({ url: "/auth/forgot-password", method: "POST", body }),
+    }),
+    resetPassword: build.mutation<AuthResponse, ResetPasswordInput>({
+      query: (body) => ({ url: "/auth/reset-password", method: "POST", body }),
+    }),
   }),
 });
 
@@ -39,6 +48,8 @@ export const {
   useLogoutMutation,
   useVerifyEmailMutation,
   useResendVerificationMutation,
+  useForgotPasswordMutation,
+  useResetPasswordMutation,
 } = api;
 
 /** The shared error body from a failed request, or null for network and other errors. */

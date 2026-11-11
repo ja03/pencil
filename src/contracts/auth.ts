@@ -15,6 +15,15 @@ const email = z
   .toLowerCase()
   .pipe(z.email("Enter a valid email address."));
 
+/** The rules for any password a user chooses: on register and on reset. */
+const newPassword = z
+  .string()
+  .min(PASSWORD_MIN_LENGTH, `Use at least ${PASSWORD_MIN_LENGTH} characters.`)
+  .refine(
+    (p) => new TextEncoder().encode(p).length <= PASSWORD_MAX_BYTES,
+    "That password is too long.",
+  );
+
 export const registerInput = z.object({
   username: z
     .string()
@@ -23,13 +32,7 @@ export const registerInput = z.object({
     .max(USERNAME_MAX_LENGTH, `Use at most ${USERNAME_MAX_LENGTH} characters.`)
     .regex(USERNAME_PATTERN, "Use only lowercase letters, numbers and _."),
   email,
-  password: z
-    .string()
-    .min(PASSWORD_MIN_LENGTH, `Use at least ${PASSWORD_MIN_LENGTH} characters.`)
-    .refine(
-      (p) => new TextEncoder().encode(p).length <= PASSWORD_MAX_BYTES,
-      "That password is too long.",
-    ),
+  password: newPassword,
 });
 export type RegisterInput = z.infer<typeof registerInput>;
 
@@ -39,9 +42,10 @@ export const loginInput = z.object({
 });
 export type LoginInput = z.infer<typeof loginInput>;
 
-export const verifyEmailInput = z.object({
-  token: z.string().min(1, "This link is missing its token.").max(200),
-});
+/** The token from an emailed link. */
+const linkToken = z.string().min(1, "This link is missing its token.").max(200);
+
+export const verifyEmailInput = z.object({ token: linkToken });
 export type VerifyEmailInput = z.infer<typeof verifyEmailInput>;
 
 /** After verifying: whoever is signed in on this browser, if anyone, as they are now. */
@@ -51,11 +55,29 @@ export const resendVerificationInput = z.object({ email });
 export type ResendVerificationInput = z.infer<typeof resendVerificationInput>;
 
 /**
- * The only reply resend ever gives, so it never reveals whether an account
- * exists or is already verified.
+ * The only reply resend and forgot password ever give, so neither reveals
+ * whether an account exists (or, for resend, is already verified).
  */
-export const RESEND_VERIFICATION_REPLY = "If that email exists, we sent a link.";
-export type ResendVerificationResponse = { message: typeof RESEND_VERIFICATION_REPLY };
+export const EMAIL_LINK_REPLY = "If that email exists, we sent a link.";
+export type ResendVerificationResponse = { message: typeof EMAIL_LINK_REPLY };
+
+export const forgotPasswordInput = z.object({ email });
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordInput>;
+export type ForgotPasswordResponse = { message: typeof EMAIL_LINK_REPLY };
+
+export const resetPasswordInput = z.object({ token: linkToken, password: newPassword });
+export type ResetPasswordInput = z.infer<typeof resetPasswordInput>;
+
+/**
+ * The reset form: the API's input plus the repeated password, which only the
+ * browser checks, since the API never sees it.
+ */
+export const resetPasswordForm = resetPasswordInput
+  .extend({ confirm: z.string() })
+  .refine((form) => form.confirm === form.password, {
+    path: ["confirm"],
+    message: "The passwords don't match.",
+  });
 
 /** The signed-in user as the API and client see it. Never includes secrets. */
 export type CurrentUser = {

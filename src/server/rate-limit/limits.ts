@@ -39,6 +39,21 @@ export const RATE_LIMITS = {
     windowMs: 60 * MINUTE,
     message: "Too many verification emails from your network. Please try again later.",
   },
+  /**
+   * Keyed by the email asked for, known or not, like resend: stops anyone
+   * filling one inbox with reset emails.
+   */
+  forgotPasswordPerEmail: {
+    limit: 3,
+    windowMs: 60 * MINUTE,
+    message: "You can ask for 3 reset emails an hour. Please try again later.",
+  },
+  /** Keyed by client IP: stops one address sending reset emails to many inboxes. */
+  forgotPasswordPerIp: {
+    limit: 10,
+    windowMs: 60 * MINUTE,
+    message: "Too many reset emails from your network. Please try again later.",
+  },
 } satisfies Record<string, RateLimitRule>;
 
 export type RateLimiters = Record<keyof typeof RATE_LIMITS, RateLimiter>;
@@ -48,10 +63,13 @@ export type RateLimiters = Record<keyof typeof RATE_LIMITS, RateLimiter>;
 const globalForLimits = globalThis as unknown as { rateLimiters?: RateLimiters };
 
 export function rateLimiters(): RateLimiters {
-  globalForLimits.rateLimiters ??= Object.fromEntries(
-    Object.entries(RATE_LIMITS).map(([name, rule]) => [name, createRateLimiter(rule, clock)]),
-  ) as RateLimiters;
-  return globalForLimits.rateLimiters;
+  const limiters = (globalForLimits.rateLimiters ??= {} as RateLimiters);
+  // Fills in any limit missing so far, not only on the first call: a dev hot
+  // reload keeps the old object, which has no entry for a newly added limit.
+  for (const [name, rule] of Object.entries(RATE_LIMITS) as [keyof RateLimiters, RateLimitRule][]) {
+    limiters[name] ??= createRateLimiter(rule, clock);
+  }
+  return limiters;
 }
 
 /** Forgets every counter. Tests call this so each test starts with fresh limits. */
