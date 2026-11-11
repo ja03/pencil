@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { MyPostsDashboard, MyPostsSkeleton } from "@/components/my-posts-dashboard";
-import { getCurrentUser } from "@/server/auth/service";
+import { requirePageUser } from "@/server/auth/page-guard";
 import { listOwnPosts } from "@/server/posts/service";
 
 export const metadata: Metadata = { title: "My posts · Pencil" };
@@ -41,9 +40,7 @@ export default function MyPostsPage() {
 }
 
 async function MyPostsList() {
-  const user = await getCurrentUser(await cookies());
-  // The proxy only checks the token; a revoked session lands here.
-  if (!user) redirect(`/login?next=${encodeURIComponent("/my-posts")}`);
+  const user = await requirePageUser(await cookies(), "/my-posts");
   const { posts } = await listOwnPosts(user);
   return <MyPostsDashboard initial={posts} />;
 }

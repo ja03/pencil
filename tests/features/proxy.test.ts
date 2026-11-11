@@ -9,7 +9,11 @@ async function visit(path: string, cookie?: string) {
     headers: cookie ? { cookie } : {},
   });
   const res = await proxy(request);
-  return { status: res.status, location: res.headers.get("location") };
+  return {
+    status: res.status,
+    location: res.headers.get("location"),
+    setCookie: res.headers.getSetCookie(),
+  };
 }
 
 describe("proxy (early redirects from the session cookie)", () => {
@@ -49,6 +53,22 @@ describe("proxy (early redirects from the session cookie)", () => {
     // exactly like a live one; the page's own check is what turns it away.
     expect((await visit("/settings", goneCookie)).location).toBeNull();
     expect((await visit("/settings", liveCookie)).location).toBeNull();
+  });
+
+  it("sends an expired or broken token on signed-in-only pages to the session-expired screen, and drops it", async () => {
+    const user = await createUser();
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    const expired = await sessionCookieFor(user, eightDaysAgo);
+
+    for (const cookie of [expired, "pencil_session=not-a-jwt"]) {
+      const res = await visit("/my-posts", cookie);
+
+      expect(res.status).toBe(307);
+      const location = new URL(res.location!);
+      expect(location.pathname).toBe("/session-expired");
+      expect(location.searchParams.get("next")).toBe("/my-posts");
+      expect(res.setCookie).toEqual([expect.stringMatching(/^pencil_session=;.*(Max-Age=0|Expires=)/)]);
+    }
   });
 
   it("treats an invalid token as signed out", async () => {

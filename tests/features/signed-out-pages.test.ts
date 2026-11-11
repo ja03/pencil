@@ -6,6 +6,7 @@ import { leaveIfSignedIn } from "@/components/signed-out-only";
 import { proxy } from "@/proxy";
 import { db } from "@/server/db";
 import { signedIn, TEST_PASSWORD } from "../helpers/auth";
+import { redirectOf } from "../helpers/redirect";
 import { call } from "../helpers/request";
 
 const SIGNED_OUT_ONLY = ["/login", "/register"];
@@ -20,17 +21,7 @@ async function open(path: string, cookie: string): Promise<string | null> {
   const early = (await proxy(request)).headers.get("location");
   if (early) return new URL(early).pathname;
 
-  try {
-    await leaveIfSignedIn(request.cookies);
-    return null;
-  } catch (error) {
-    // `redirect()` throws an error whose digest is "NEXT_REDIRECT;<type>;<url>;<status>;".
-    const digest = (error as { digest?: unknown }).digest;
-    if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT;")) {
-      return digest.split(";")[2];
-    }
-    throw error;
-  }
+  return redirectOf(() => leaveIfSignedIn(request.cookies));
 }
 
 describe("login and register pages with a stale session", () => {

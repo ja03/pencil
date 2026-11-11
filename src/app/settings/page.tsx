@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { parseTheme, THEME_COOKIE, type Theme } from "@/client/theme";
 import type { CurrentUser } from "@/contracts/auth";
@@ -8,7 +7,7 @@ import { profilePath } from "@/contracts/users";
 import { LogOutButton, SettingsNav } from "@/components/settings-nav";
 import { parseSettingsTab, settingsPath, type SettingsTab } from "@/components/settings-tabs";
 import { ThemePicker } from "@/components/theme-picker";
-import { getCurrentUser } from "@/server/auth/service";
+import { requirePageUser } from "@/server/auth/page-guard";
 
 export const metadata: Metadata = { title: "Settings · Pencil" };
 
@@ -34,9 +33,7 @@ export default function SettingsPage({ searchParams }: Props) {
 async function SettingsView({ searchParams }: Pick<Props, "searchParams">) {
   const tab = parseSettingsTab((await searchParams).tab);
   const cookieStore = await cookies();
-  const user = await getCurrentUser(cookieStore);
-  // The proxy only checks the token; a revoked session lands here.
-  if (!user) redirect(`/login?next=${encodeURIComponent(settingsPath(tab))}`);
+  const user = await requirePageUser(cookieStore, settingsPath(tab));
 
   const sections: Record<SettingsTab, ReactNode> = {
     account: <AccountSection user={user} />,

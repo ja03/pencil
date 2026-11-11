@@ -20,6 +20,23 @@ export async function markEmailVerified(id: string, at: Date): Promise<void> {
   await db().user.updateMany({ where: { id, emailVerifiedAt: null }, data: { emailVerifiedAt: at } });
 }
 
+/**
+ * Sets a new password from an emailed reset link and bumps `tokenVersion`, so
+ * every session issued before this stops working. Opening the link proved the
+ * user owns their email, so it also marks them verified (keeping the first
+ * date if they already were). Returns the updated user.
+ */
+export async function replacePassword(id: string, passwordHash: string, at: Date): Promise<User> {
+  const [, user] = await db().$transaction([
+    db().user.updateMany({ where: { id, emailVerifiedAt: null }, data: { emailVerifiedAt: at } }),
+    db().user.update({
+      where: { id },
+      data: { passwordHash, tokenVersion: { increment: 1 } },
+    }),
+  ]);
+  return user;
+}
+
 export type UniqueUserField = "email" | "username";
 
 /** Which of `email` and `username` already belong to an account. */

@@ -1,5 +1,5 @@
 import {
-  RESEND_VERIFICATION_REPLY,
+  EMAIL_LINK_REPLY,
   resendVerificationInput,
   type ResendVerificationResponse,
 } from "@/contracts/auth";
@@ -17,6 +17,6 @@ export const POST = route(async (request) => {
   const { email } = await parseJson(request, resendVerificationInput);
   rateLimiters().resendVerificationPerEmail.consume(email);
   resendVerification(email);
-  const body: ResendVerificationResponse = { message: RESEND_VERIFICATION_REPLY };
+  const body: ResendVerificationResponse = { message: EMAIL_LINK_REPLY };
   return Response.json(body, { status: 202 });
 });

@@ -70,6 +70,11 @@ export function LoginForm() {
           label="Password"
           autoComplete="current-password"
           required
+          aside={
+            <Link href="/forgot-password" className="text-[13px] text-acc">
+              Forgot password?
+            </Link>
+          }
           errors={fields.password ?? credentialsError}
         />
         <SubmitButton pending={isLoading}>{isLoading ? "Logging in…" : "Log in"}</SubmitButton>

@@ -21,14 +21,18 @@ export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   if (!matches(pathname, SIGNED_IN_ONLY)) return NextResponse.next();
 
-  const hasSession =
-    (await verifySession(request.cookies.get(SESSION_COOKIE)?.value)) !== null;
-  if (!hasSession) {
-    const login = new URL("/login", request.url);
-    login.searchParams.set("next", `${pathname}${search}`);
-    return NextResponse.redirect(login);
-  }
-  return NextResponse.next();
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  if (await verifySession(token)) return NextResponse.next();
+
+  // No cookie: a visitor, who logs in. A cookie that fails the check: a
+  // session that expired (or was tampered with), whose owner is told so.
+  const page = token ? "/session-expired" : "/login";
+  const destination = new URL(page, request.url);
+  destination.searchParams.set("next", `${pathname}${search}`);
+  const response = NextResponse.redirect(destination);
+  // A dead token is no use to anyone; drop it so later visits read as signed out.
+  if (token) response.cookies.delete(SESSION_COOKIE);
+  return response;
 }
 
 export const config = {

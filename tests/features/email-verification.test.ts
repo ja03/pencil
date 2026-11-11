@@ -7,7 +7,7 @@ import { POST as verifyRoute } from "@/app/api/auth/verify-email/route";
 import { POST as commentRoute } from "@/app/api/posts/[id]/comments/route";
 import { PUT as likeRoute } from "@/app/api/posts/[id]/like/route";
 import { POST as publishRoute } from "@/app/api/posts/[id]/publish/route";
-import { RESEND_VERIFICATION_REPLY } from "@/contracts/auth";
+import { EMAIL_LINK_REPLY } from "@/contracts/auth";
 import { db } from "@/server/db";
 import { createUser, signedIn } from "../helpers/auth";
 import { fakeClock } from "../helpers/clock";
@@ -164,7 +164,7 @@ describe("POST /api/auth/resend-verification", () => {
     const res = await resend(email);
 
     expect(res.status).toBe(202);
-    expect(res.body).toEqual({ message: RESEND_VERIFICATION_REPLY });
+    expect(res.body).toEqual({ message: EMAIL_LINK_REPLY });
     expect(await emailsTo(email)).toHaveLength(2);
     const second = await verificationTokenFor(email);
     expect(second).not.toBe(first);
@@ -182,7 +182,7 @@ describe("POST /api/auth/resend-verification", () => {
 
     for (const res of replies) {
       expect(res.status).toBe(202);
-      expect(res.body).toEqual({ message: RESEND_VERIFICATION_REPLY });
+      expect(res.body).toEqual({ message: EMAIL_LINK_REPLY });
     }
     expect(await emailsTo(verified.email)).toHaveLength(0);
     expect(await emailsTo(unknown)).toHaveLength(0);
