@@ -4,12 +4,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { longDate } from "@/client/format";
+import { CommentIcon, commentsLabel } from "@/components/comment-icon";
+import { CommentsSection } from "@/components/comments-section";
 import { LikeButton } from "@/components/like-button";
 import { PostCover } from "@/components/post-cover";
+import type { CommentsResponse } from "@/contracts/comments";
 import type { Post } from "@/contracts/posts";
 import { tagPath } from "@/contracts/tags";
 import { profilePath } from "@/contracts/users";
 import { getCurrentUser } from "@/server/auth/service";
+import { listComments } from "@/server/comments/service";
 import { findPostBySlug } from "@/server/posts/service";
 
 type Props = PageProps<"/posts/[slug]">;
@@ -38,10 +42,22 @@ async function PostView({ params }: Pick<Props, "params">) {
   const viewer = await getCurrentUser(await cookies());
   const post = await findPostBySlug(viewer, slug);
   if (!post) notFound();
-  return <PostArticle post={post} isAuthor={viewer?.id === post.author.id} />;
+  // Drafts have no comments: nobody can comment until the post is published.
+  const comments = post.status === "published" ? await listComments(post.id, null) : null;
+  return (
+    <PostArticle post={post} comments={comments} isAuthor={viewer?.id === post.author.id} />
+  );
 }
 
-function PostArticle({ post, isAuthor }: { post: Post; isAuthor: boolean }) {
+function PostArticle({
+  post,
+  comments,
+  isAuthor,
+}: {
+  post: Post;
+  comments: CommentsResponse | null;
+  isAuthor: boolean;
+}) {
   const draft = post.status === "draft";
   return (
     <main className="box-border flex flex-col items-center gap-9 px-4 pt-6 pb-16 sm:gap-14 sm:px-10 sm:pt-12 sm:pb-28">
@@ -121,6 +137,14 @@ function PostArticle({ post, isAuthor }: { post: Post; isAuthor: boolean }) {
                 postId={post.id}
                 initial={{ liked: post.likedByViewer, likeCount: post.likeCount }}
               />
+              <a
+                href="#comments"
+                aria-label={`Comments, ${commentsLabel(post.commentCount)}`}
+                className="label-mono flex h-11 items-center gap-2 rounded-full border border-line px-4 tracking-[0.1em] text-ink no-underline hover:bg-soft"
+              >
+                <CommentIcon />
+                <span className="tabular-nums">{post.commentCount}</span>
+              </a>
               {isAuthor && (
                 <Link
                   href={`/write/${post.id}`}
@@ -143,6 +167,10 @@ function PostArticle({ post, isAuthor }: { post: Post; isAuthor: boolean }) {
         // Built on the server from whitelisted JSON, with every value escaped.
         dangerouslySetInnerHTML={{ __html: post.html }}
       />
+
+      {comments && (
+        <CommentsSection postId={post.id} initial={comments} initialCount={post.commentCount} />
+      )}
     </main>
   );
 }

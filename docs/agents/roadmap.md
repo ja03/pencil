@@ -216,6 +216,7 @@ These are the build phases from the spec, in order, matched to their issues.
   - A deleted comment that has replies shows "[comment deleted]" and keeps its replies.
   - A deleted comment with no replies disappears.
   - The post's author can delete any comment on their post.
+  - #12 left `deletedAt` and the edited marker off the `comments` table, so this ticket's migration adds them. Then make comment counts on cards and the post (`_count.comments`) and the comment list agree with what a reader sees.
 
 ### 7. Email
 

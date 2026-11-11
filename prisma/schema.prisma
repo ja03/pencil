@@ -24,6 +24,7 @@ model User {
   updatedAt       DateTime  @updatedAt
   posts           Post[]
   likes           Like[]
+  comments        Comment[]
 
   @@map("users")
 }
@@ -54,6 +55,7 @@ model Post {
   updatedAt      DateTime  @updatedAt
   tags           PostTag[]
   likes          Like[]
+  comments       Comment[]
 
   @@index([authorId])
   /// The feed's keyset: newest published first, id breaks ties.
@@ -100,4 +102,29 @@ model Like {
   /// Counting a post's likes.
   @@index([postId])
   @@map("likes")
+}
+
+/// A reader's plain-text comment on a published post. Threads are one level
+/// deep: a top-level comment has no parent, and a reply's parent is always a
+/// top-level comment on the same post (the comment service enforces this).
+model Comment {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  postId    String    @db.Uuid
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String    @db.Uuid
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  /// Null for a top-level comment; the top-level comment it answers for a reply.
+  parentId  String?   @db.Uuid
+  parent    Comment?  @relation("Replies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("Replies")
+  /// Plain text, trimmed, at most 1000 characters.
+  body      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  /// A post's top-level comments, newest first, keyset-paged on (createdAt, id).
+  @@index([postId, parentId, createdAt, id])
+  /// A comment's replies, oldest first.
+  @@index([parentId, createdAt, id])
+  @@map("comments")
 }

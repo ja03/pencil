@@ -4,7 +4,7 @@ import type { FeedResponse } from "@/contracts/posts";
 import { getCurrentUser } from "@/server/auth/service";
 import { tagParam } from "@/server/http/params";
 import { route } from "@/server/http/route";
-import { cursorParam } from "@/server/posts/cursor";
+import { cursorParam } from "@/server/http/cursor";
 import { listPublished } from "@/server/posts/service";
 
 type Context = RouteContext<"/api/tags/[tag]/posts">;
