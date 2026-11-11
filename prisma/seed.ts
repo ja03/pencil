@@ -303,10 +303,18 @@ async function seedLikes(authorIds: Map<Author, string>) {
   console.log(`Seeded ${count} demo like(s).`);
 }
 
-type SeedComment = { by: Author; body: string; replies?: { by: Author; body: string }[] };
+type SeedComment = {
+  by: Author;
+  body: string;
+  /** Shown as edited a few minutes after it was written. */
+  edited?: true;
+  /** Deleted after its replies came in, so it shows as "[comment deleted]". */
+  deleted?: true;
+  replies?: { by: Author; body: string }[];
+};
 
-// A few conversations, keyed by post title, so comment threads and counts
-// have something to show.
+// A few conversations, keyed by post title, so comment threads, counts, the
+// "edited" label and the deleted-comment placeholder have something to show.
 const COMMENTS: Record<string, SeedComment[]> = {
   "The quiet discipline of first drafts": [
     {
@@ -330,7 +338,17 @@ const COMMENTS: Record<string, SeedComment[]> = {
     },
   ],
   "Margins are where thinking happens": [
-    { by: "omar_h", body: "I buy used books for the margins as much as for the text." },
+    {
+      by: "omar_h",
+      body: "I buy used books for the margins as much as for the text.",
+      edited: true,
+    },
+    {
+      by: "devnotes",
+      body: "Margins are just comments with worse version control.",
+      deleted: true,
+      replies: [{ by: "sara_m", body: "Some of the best arguments I've read were in pencil." }],
+    },
   ],
 };
 
@@ -350,12 +368,14 @@ async function seedComments(authorIds: Map<Author, string>) {
     let at = (post.publishedAt ?? new Date()).getTime() + 60 * minute;
     const when = () => new Date(Math.min(Date.now(), (at += 17 * minute)));
     for (const thread of threads) {
+      const createdAt = when();
       const { id } = await db().comment.create({
         data: {
           postId: post.id,
           authorId: authorIds.get(thread.by)!,
           body: thread.body,
-          createdAt: when(),
+          createdAt,
+          ...(thread.edited && { editedAt: new Date(createdAt.getTime() + 4 * minute) }),
         },
         select: { id: true },
       });
@@ -371,6 +391,9 @@ async function seedComments(authorIds: Map<Author, string>) {
           },
         });
         created++;
+      }
+      if (thread.deleted) {
+        await db().comment.update({ where: { id }, data: { deletedAt: when() } });
       }
     }
   }

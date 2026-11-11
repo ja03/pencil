@@ -8,13 +8,15 @@ export const COMMENTS_PAGE_SIZE = 20;
 
 const WRITE_SOMETHING = "Write something first.";
 
+const commentBody = z
+  .string(WRITE_SOMETHING)
+  .trim()
+  .min(1, WRITE_SOMETHING)
+  .max(COMMENT_MAX_LENGTH, "Keep comments to 1,000 characters.");
+
 /** Body of `POST /api/posts/:id/comments`. */
 export const createCommentInput = z.object({
-  body: z
-    .string(WRITE_SOMETHING)
-    .trim()
-    .min(1, WRITE_SOMETHING)
-    .max(COMMENT_MAX_LENGTH, "Keep comments to 1,000 characters."),
+  body: commentBody,
   /** The top-level comment this replies to; leave it out for a new top-level comment. */
   parentId: z
     .uuid("That comment doesn't exist.")
@@ -25,6 +27,12 @@ export const createCommentInput = z.object({
 export type CreateCommentInput = z.infer<typeof createCommentInput>;
 export type CreateCommentBody = z.input<typeof createCommentInput>;
 
+/** Body of `PATCH /api/comments/:id`: the comment's new text. */
+export const editCommentInput = z.object({ body: commentBody });
+
+export type EditCommentInput = z.infer<typeof editCommentInput>;
+export type EditCommentBody = z.input<typeof editCommentInput>;
+
 export type CommentAuthor = { id: string; username: string };
 
 /** A top-level comment or a reply. Plain text: render it as text, never as HTML. */
@@ -34,11 +42,26 @@ export type Comment = {
   parentId: string | null;
   body: string;
   createdAt: string;
+  /** When the author last changed the text, shown as "edited"; null if never. */
+  editedAt: string | null;
   author: CommentAuthor;
+  deleted: false;
 };
 
-/** A top-level comment with every reply to it, oldest first. */
-export type CommentThread = Comment & { replies: Comment[] };
+/**
+ * What is left of a deleted top-level comment that still has replies: it
+ * shows as "[comment deleted]", with no text or author, so its replies keep
+ * their place. A deleted comment with no replies isn't listed at all.
+ */
+export type DeletedComment = {
+  id: string;
+  parentId: null;
+  createdAt: string;
+  deleted: true;
+};
+
+/** A top-level comment, or what is left of it, with every reply to it, oldest first. */
+export type CommentThread = (Comment | DeletedComment) & { replies: Comment[] };
 
 /**
  * Body of `GET /api/posts/:id/comments`: top-level comments newest first,
@@ -47,5 +70,5 @@ export type CommentThread = Comment & { replies: Comment[] };
  */
 export type CommentsResponse = { comments: CommentThread[]; nextCursor: string | null };
 
-/** Body of `POST /api/posts/:id/comments`. */
+/** Body of `POST /api/posts/:id/comments` and `PATCH /api/comments/:id`. */
 export type CommentResponse = { comment: Comment };

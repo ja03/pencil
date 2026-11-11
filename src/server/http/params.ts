@@ -14,6 +14,14 @@ export async function postIdParam(params: Promise<{ id: string }>): Promise<stri
   return parsed.data;
 }
 
+/** A comment id from the URL. Anything that isn't a comment id is a 404. */
+export async function commentIdParam(params: Promise<{ id: string }>): Promise<string> {
+  const { id } = await params;
+  const parsed = z.uuid().safeParse(id);
+  if (!parsed.success) throw new ApiError("NOT_FOUND", "That comment doesn't exist.");
+  return parsed.data;
+}
+
 /**
  * A tag from the URL, normalized, so `/tags/React` finds "react". Anything
  * that can't be a tag is a 404.

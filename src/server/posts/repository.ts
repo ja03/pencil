@@ -11,8 +11,13 @@ const tagNames = {
   tags: { select: { tag: { select: { name: true } } }, orderBy: { position: "asc" } },
 } as const;
 
-/** How many readers like the post and how many comments it has, as `_count`. */
-const counts = { _count: { select: { likes: true, comments: true } } } as const;
+/**
+ * How many readers like the post and how many comments it has, as `_count`.
+ * Deleted comments don't count: the number matches what the thread shows.
+ */
+const counts = {
+  _count: { select: { likes: true, comments: { where: { deletedAt: null } } } },
+} as const;
 
 const withAuthorAndTags = { ...author, ...tagNames, ...counts } as const;
 

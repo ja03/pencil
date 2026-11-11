@@ -169,7 +169,12 @@ function PostArticle({
       />
 
       {comments && (
-        <CommentsSection postId={post.id} initial={comments} initialCount={post.commentCount} />
+        <CommentsSection
+          postId={post.id}
+          postAuthorId={post.author.id}
+          initial={comments}
+          initialCount={post.commentCount}
+        />
       )}
     </main>
   );
