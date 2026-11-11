@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 import { proxy } from "@/proxy";
+import { db } from "@/server/db";
 import { createUser, sessionCookieFor } from "../helpers/auth";
 
 async function visit(path: string, cookie?: string) {
@@ -27,14 +28,27 @@ describe("proxy (early redirects from the session cookie)", () => {
     expect((await visit("/settings", cookie)).location).toBeNull();
   });
 
-  it("sends signed-in users away from the login and register pages", async () => {
+  it("leaves the login and register pages to the pages themselves, even for a valid token", async () => {
+    // The proxy can't tell a valid session from a stale one without the
+    // database, so the signed-in redirect happens in the page (`SignedOutOnly`).
     const cookie = await sessionCookieFor(await createUser());
 
     for (const path of ["/login", "/register"]) {
-      const res = await visit(path, cookie);
-      expect(res.status).toBe(307);
-      expect(new URL(res.location!).pathname).toBe("/");
+      expect((await visit(path, cookie)).location).toBeNull();
     }
+  });
+
+  it("judges a token by its signature and expiry alone, never the database", async () => {
+    const live = await createUser();
+    const gone = await createUser();
+    const liveCookie = await sessionCookieFor(live);
+    const goneCookie = await sessionCookieFor(gone);
+    await db().user.delete({ where: { id: gone.id } });
+
+    // A deleted user's token is still signed and unexpired, so it passes here
+    // exactly like a live one; the page's own check is what turns it away.
+    expect((await visit("/settings", goneCookie)).location).toBeNull();
+    expect((await visit("/settings", liveCookie)).location).toBeNull();
   });
 
   it("treats an invalid token as signed out", async () => {
