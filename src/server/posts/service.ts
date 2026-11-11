@@ -15,7 +15,7 @@ import { clock } from "@/server/clock";
 import { ApiError } from "@/server/http/errors";
 import { hasLiked, likedAmong } from "@/server/likes/repository";
 import { findUserByUsername } from "@/server/users/repository";
-import { encodeCursor, type FeedPosition } from "./cursor";
+import { encodeCursor, type KeysetPosition } from "@/server/http/cursor";
 import { excerptOf } from "./excerpt";
 import { readingMinutesOf } from "./reading-time";
 import { renderPostContent } from "./render";
@@ -47,6 +47,7 @@ function toPost(row: posts.PostRow, likedByViewer: boolean): Post {
     author: row.author,
     likeCount: row._count.likes,
     likedByViewer,
+    commentCount: row._count.comments,
   };
 }
 
@@ -69,6 +70,7 @@ function toSummary(row: posts.PostSummaryRow, likedByViewer: boolean): PostSumma
     author: row.author,
     likeCount: row._count.likes,
     likedByViewer,
+    commentCount: row._count.comments,
   };
 }
 
@@ -223,7 +225,7 @@ export async function listOwnPosts(user: CurrentUser): Promise<MyPostsResponse> 
 export async function listPublishedBy(
   viewer: CurrentUser | null,
   username: string,
-  after: FeedPosition | null,
+  after: KeysetPosition | null,
 ): Promise<FeedResponse | null> {
   const author = await findUserByUsername(username);
   return author && listPublished(viewer, after, { authorId: author.id });
@@ -236,7 +238,7 @@ export async function listPublishedBy(
  */
 export async function listPublished(
   viewer: CurrentUser | null,
-  after: FeedPosition | null,
+  after: KeysetPosition | null,
   filter: posts.PostListFilter = {},
 ): Promise<FeedResponse> {
   // One extra row says whether another page exists without a count query.
@@ -246,7 +248,10 @@ export async function listPublished(
   const liked = viewer ? await likedAmong(viewer.id, page.map((row) => row.id)) : new Set();
   return {
     posts: page.map((row) => toSummary(row, liked.has(row.id))),
-    nextCursor: rows.length > FEED_PAGE_SIZE && last ? encodeCursor(last) : null,
+    nextCursor:
+      rows.length > FEED_PAGE_SIZE && last
+        ? encodeCursor({ at: last.publishedAt, id: last.id })
+        : null,
   };
 }
 

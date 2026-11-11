@@ -303,11 +303,86 @@ async function seedLikes(authorIds: Map<Author, string>) {
   console.log(`Seeded ${count} demo like(s).`);
 }
 
+type SeedComment = { by: Author; body: string; replies?: { by: Author; body: string }[] };
+
+// A few conversations, keyed by post title, so comment threads and counts
+// have something to show.
+const COMMENTS: Record<string, SeedComment[]> = {
+  "The quiet discipline of first drafts": [
+    {
+      by: "sara_m",
+      body: "The [TK] trick changed how I draft. I used to stall on every missing fact.",
+      replies: [{ by: "lina_k", body: "Same. It turns a stop sign into a bookmark." }],
+    },
+    {
+      by: "devnotes",
+      body: "Stopping mid-sentence is underrated. Tomorrow-me always thanks today-me.",
+    },
+  ],
+  "A small case for boring technology": [
+    {
+      by: "omar_h",
+      body: "Postgres and a cron job have outlived three of the queues I replaced them with.",
+      replies: [
+        { by: "devnotes", body: "The best incident report is the one you never had to write." },
+        { by: "lina_k", body: "Saving this for the next architecture review." },
+      ],
+    },
+  ],
+  "Margins are where thinking happens": [
+    { by: "omar_h", body: "I buy used books for the margins as much as for the text." },
+  ],
+};
+
+/**
+ * The demo conversations, an hour or so after each post was published.
+ * Posts that already have comments are left alone.
+ */
+async function seedComments(authorIds: Map<Author, string>) {
+  const minute = 60 * 1000;
+  let created = 0;
+  for (const [title, threads] of Object.entries(COMMENTS)) {
+    const post = await db().post.findUnique({
+      where: { slug: slugify(title) },
+      select: { id: true, publishedAt: true, _count: { select: { comments: true } } },
+    });
+    if (!post || post._count.comments > 0) continue;
+    let at = (post.publishedAt ?? new Date()).getTime() + 60 * minute;
+    const when = () => new Date(Math.min(Date.now(), (at += 17 * minute)));
+    for (const thread of threads) {
+      const { id } = await db().comment.create({
+        data: {
+          postId: post.id,
+          authorId: authorIds.get(thread.by)!,
+          body: thread.body,
+          createdAt: when(),
+        },
+        select: { id: true },
+      });
+      created++;
+      for (const reply of thread.replies ?? []) {
+        await db().comment.create({
+          data: {
+            postId: post.id,
+            parentId: id,
+            authorId: authorIds.get(reply.by)!,
+            body: reply.body,
+            createdAt: when(),
+          },
+        });
+        created++;
+      }
+    }
+  }
+  console.log(`Seeded ${created} demo comment(s).`);
+}
+
 async function main() {
   await ensureBucket();
   const authorIds = await seedAuthors();
   await seedPosts(authorIds);
   await seedLikes(authorIds);
+  await seedComments(authorIds);
   console.log(`Seed complete. Demo authors sign in with password "${DEMO_PASSWORD}".`);
 }
 

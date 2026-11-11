@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { decodeCursor, encodeCursor } from "./cursor";
 
 const position = {
-  publishedAt: new Date("2026-03-01T09:00:00.123Z"),
+  at: new Date("2026-03-01T09:00:00.123Z"),
   id: "01936f0e-1234-7000-8000-00000000abcd",
 };
 
-describe("feed cursors", () => {
+describe("page cursors", () => {
   it("decode back to the position they were made from", () => {
     expect(decodeCursor(encodeCursor(position))).toEqual(position);
   });

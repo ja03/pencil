@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/server/auth/service";
 import { ApiError } from "@/server/http/errors";
 import { NO_SUCH_AUTHOR, usernameParam } from "@/server/http/params";
 import { route } from "@/server/http/route";
-import { cursorParam } from "@/server/posts/cursor";
+import { cursorParam } from "@/server/http/cursor";
 import { listPublishedBy } from "@/server/posts/service";
 
 type Context = RouteContext<"/api/users/[username]/posts">;

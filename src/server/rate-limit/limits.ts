@@ -5,8 +5,8 @@ const MINUTE = 60_000;
 const TOO_MANY_LOGINS = "Too many login attempts. Please wait a moment and try again.";
 
 /**
- * Every rate limit in Pencil. Later tickets add theirs here (comment
- * creation, verification resend) and call `rateLimiters().<name>.consume(key)`.
+ * Every rate limit in Pencil. Later tickets add theirs here (verification
+ * resend) and call `rateLimiters().<name>.consume(key)`.
  */
 export const RATE_LIMITS = {
   /** Keyed by client IP: stops one address guessing passwords. */
@@ -18,6 +18,12 @@ export const RATE_LIMITS = {
     limit: 10,
     windowMs: 60 * MINUTE,
     message: "Too many sign-ups from your network. Please try again later.",
+  },
+  /** Keyed by client IP: stops comment spam bursts while leaving room for a real conversation. */
+  commentPerIp: {
+    limit: 5,
+    windowMs: MINUTE,
+    message: "You're commenting too fast. Please wait a moment and try again.",
   },
 } satisfies Record<string, RateLimitRule>;
 

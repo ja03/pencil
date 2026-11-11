@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { FeedResponse, PostResponse } from "@/contracts/posts";
 import { getCurrentUser, requireUser } from "@/server/auth/service";
 import { parseJson, route } from "@/server/http/route";
-import { cursorParam } from "@/server/posts/cursor";
+import { cursorParam } from "@/server/http/cursor";
 import { serverPostInputs } from "@/server/posts/inputs";
 import { createDraft, listPublished } from "@/server/posts/service";
 

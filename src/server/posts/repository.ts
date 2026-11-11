@@ -1,7 +1,7 @@
 import { Prisma } from "@/generated/prisma/client";
 import type { PostContent } from "@/contracts/post-content";
 import { db } from "@/server/db";
-import type { FeedPosition } from "./cursor";
+import type { KeysetPosition } from "@/server/http/cursor";
 import { firstFreeSlug } from "./slug";
 
 const author = { author: { select: { id: true, username: true } } } as const;
@@ -11,10 +11,10 @@ const tagNames = {
   tags: { select: { tag: { select: { name: true } } }, orderBy: { position: "asc" } },
 } as const;
 
-/** How many readers like the post, as `_count.likes`. */
-const likeCount = { _count: { select: { likes: true } } } as const;
+/** How many readers like the post and how many comments it has, as `_count`. */
+const counts = { _count: { select: { likes: true, comments: true } } } as const;
 
-const withAuthorAndTags = { ...author, ...tagNames, ...likeCount } as const;
+const withAuthorAndTags = { ...author, ...tagNames, ...counts } as const;
 
 export type PostRow = Prisma.PostGetPayload<{ include: typeof withAuthorAndTags }>;
 
@@ -172,7 +172,7 @@ export type PostSummaryRow = Prisma.PostGetPayload<{ select: typeof summaryField
  * narrow it with `filter`.
  */
 export async function findPublishedPage(
-  after: FeedPosition | null,
+  after: KeysetPosition | null,
   take: number,
   filter: PostListFilter = {},
 ): Promise<PostSummaryRow[]> {
@@ -185,8 +185,8 @@ export async function findPublishedPage(
         after
           ? {
               OR: [
-                { publishedAt: { lt: after.publishedAt } },
-                { publishedAt: after.publishedAt, id: { lt: after.id } },
+                { publishedAt: { lt: after.at } },
+                { publishedAt: after.at, id: { lt: after.id } },
               ],
             }
           : {},

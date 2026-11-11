@@ -114,6 +114,8 @@ export type Post = {
   likeCount: number;
   /** Whether the signed-in reader likes it; always false for visitors. */
   likedByViewer: boolean;
+  /** How many comments it has, replies included. */
+  commentCount: number;
 };
 
 /** Body of create, read, update and publish responses. */
@@ -136,6 +138,7 @@ export type PostSummary = Pick<
   | "author"
   | "likeCount"
   | "likedByViewer"
+  | "commentCount"
 > & { publishedAt: string };
 
 /**

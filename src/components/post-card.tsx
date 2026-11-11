@@ -3,10 +3,11 @@ import { shortDate } from "@/client/format";
 import type { PostSummary } from "@/contracts/posts";
 import { tagPath } from "@/contracts/tags";
 import { profilePath } from "@/contracts/users";
+import { CommentIcon, commentsLabel } from "./comment-icon";
 import { HeartIcon, likesLabel } from "./heart-icon";
 import { PostCover } from "./post-cover";
 
-/** A feed card: cover, reading time, tags, title, summary, author, date and likes. */
+/** A feed card: cover, reading time, tags, title, summary, author, date, likes and comments. */
 export function PostCard({ post }: { post: PostSummary }) {
   const href = `/posts/${post.slug}`;
   return (
@@ -58,14 +59,19 @@ export function PostCard({ post }: { post: PostSummary }) {
             <time dateTime={post.publishedAt}>{shortDate(post.publishedAt)}</time>
             <span className="sr-only">, {post.readingMinutes} min read</span>
           </span>
-          <span
-            className={`ml-auto flex flex-none items-center gap-1 tabular-nums ${post.likedByViewer ? "text-acc" : ""}`}
-          >
-            <HeartIcon filled={post.likedByViewer} size={14} />
-            <span aria-hidden="true">{post.likeCount}</span>
-            <span className="sr-only">
-              {likesLabel(post.likeCount)}
-              {post.likedByViewer && ", including yours"}
+          <span className="ml-auto flex flex-none items-center gap-3 tabular-nums">
+            <span className={`flex items-center gap-1 ${post.likedByViewer ? "text-acc" : ""}`}>
+              <HeartIcon filled={post.likedByViewer} size={14} />
+              <span aria-hidden="true">{post.likeCount}</span>
+              <span className="sr-only">
+                {likesLabel(post.likeCount)}
+                {post.likedByViewer && ", including yours"},
+              </span>
+            </span>
+            <span className="flex items-center gap-1">
+              <CommentIcon size={14} />
+              <span aria-hidden="true">{post.commentCount}</span>
+              <span className="sr-only">{commentsLabel(post.commentCount)}</span>
             </span>
           </span>
         </div>
