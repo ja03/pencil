@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { Suspense, type ReactNode } from "react";
 import { StoreProvider } from "@/client/store-provider";
 import { SiteHeader } from "@/components/site-header";
+import { ToastProvider } from "@/components/toaster";
 import { getCurrentUser } from "@/server/auth/service";
 import "./globals.css";
 
@@ -33,8 +34,10 @@ async function Session({ children }: { children: ReactNode }) {
   const user = await getCurrentUser(await cookies());
   return (
     <StoreProvider user={user}>
-      <SiteHeader />
-      {children}
+      <ToastProvider>
+        <SiteHeader />
+        {children}
+      </ToastProvider>
     </StoreProvider>
   );
 }
