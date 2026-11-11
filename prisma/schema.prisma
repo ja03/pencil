@@ -1,0 +1,11 @@
+// Pencil schema. The `vector` extension (pgvector) is enabled by the first
+// migration so later tickets can add `embedding vector(768)` columns.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
