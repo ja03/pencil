@@ -1,6 +1,6 @@
 // Shared by the API and the client: post request and response shapes.
 import { z } from "zod";
-import { checkPostContent, type PostContent } from "./post-content";
+import { checkPostContent, imageSrcProblem, type ImageRules, type PostContent } from "./post-content";
 import { postTags } from "./tags";
 
 export type { PostContent } from "./post-content";
@@ -23,30 +23,60 @@ const description = z
   .transform((d) => (d ? d : null));
 
 /** Tiptap JSON, held to the whitelist in `post-content.ts`. */
-export const postContent = z.unknown().transform((value, ctx): PostContent => {
-  const result = checkPostContent(value);
-  if (result.ok) return result.content;
-  ctx.issues.push({ code: "custom", message: result.issue.message, input: value });
-  return z.NEVER;
-});
+function postContent(rules: ImageRules) {
+  return z.unknown().transform((value, ctx): PostContent => {
+    const result = checkPostContent(value, rules);
+    if (result.ok) return result.content;
+    ctx.issues.push({ code: "custom", message: result.issue.message, input: value });
+    return z.NEVER;
+  });
+}
 
-export const createPostInput = z.object({
-  title,
-  description,
-  content: postContent,
-  tags: postTags.default([]),
-});
+/** An uploaded cover image's address; null (or blank) means no cover. */
+function coverUrl(rules: ImageRules) {
+  return z
+    .string()
+    .trim()
+    .nullable()
+    .transform((url, ctx) => {
+      if (!url) return null;
+      const problem = imageSrcProblem(url, rules);
+      if (!problem) return url;
+      ctx.issues.push({ code: "custom", message: problem.replace("Images", "Cover images"), input: url });
+      return z.NEVER;
+    });
+}
+
+/**
+ * The post input schemas. The client checks with no image rules; the server
+ * passes Pencil's storage address, so images from anywhere else are rejected.
+ */
+export function postInputs(rules: ImageRules = {}) {
+  return {
+    createPostInput: z.object({
+      title,
+      description,
+      content: postContent(rules),
+      coverUrl: coverUrl(rules).optional().transform((url) => url ?? null),
+      tags: postTags.default([]),
+    }),
+    updatePostInput: z.object({
+      title: title.optional(),
+      description: description.optional(),
+      content: postContent(rules).optional(),
+      /** null removes the cover; leave it out to keep it. */
+      coverUrl: coverUrl(rules).optional(),
+      /** Replaces every tag on the post; leave it out to keep them. */
+      tags: postTags.optional(),
+    }),
+  };
+}
+
+export const { createPostInput, updatePostInput } = postInputs();
+
 export type CreatePostInput = z.infer<typeof createPostInput>;
 /** What the editor sends; the content is checked on the server. */
 export type CreatePostBody = z.input<typeof createPostInput>;
-
-export const updatePostInput = z.object({
-  title: title.optional(),
-  description: description.optional(),
-  content: postContent.optional(),
-  /** Replaces every tag on the post; leave it out to keep them. */
-  tags: postTags.optional(),
-});
 export type UpdatePostInput = z.infer<typeof updatePostInput>;
 export type UpdatePostBody = z.input<typeof updatePostInput>;
 

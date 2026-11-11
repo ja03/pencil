@@ -117,6 +117,54 @@ describe("checkPostContent", () => {
     );
   });
 
+  describe("with an image base (Pencil's storage)", () => {
+    const imageBase = "http://localhost:9000/pencil";
+    const image = (src: string) => doc({ type: "image", attrs: { src } });
+    const check = (src: string) => checkPostContent(image(src), { imageBase });
+
+    it.each([
+      ["a stored image", `${imageBase}/images/u/a.png`],
+      ["a stored image when the base has a trailing slash", `${imageBase}/images/b.webp`],
+    ])("accepts %s", (_, src) => {
+      expect(check(src).ok).toBe(true);
+      expect(checkPostContent(image(src), { imageBase: `${imageBase}/` }).ok).toBe(true);
+    });
+
+    it.each([
+      ["another site", "https://tracker.example/pixel.gif"],
+      ["the same host on another port", "http://localhost:9001/pencil/a.png"],
+      ["another bucket sharing the prefix", "http://localhost:9000/pencil-evil/a.png"],
+      ["the bucket root itself", `${imageBase}/`],
+      ["a path that climbs out of the bucket", `${imageBase}/../other/a.png`],
+      ["an encoded climb out of the bucket", `${imageBase}/%2e%2e/other/a.png`],
+      ["a backslash climb out of the bucket", `${imageBase}/..\\other/a.png`],
+      ["credentials in the address", "http://localhost:9000@tracker.example/pencil/a.png"],
+    ])("rejects an image from %s", (_, src) => {
+      const result = check(src);
+      if (result.ok) throw new Error("expected the content to be rejected");
+      expect(result.issue).toEqual({
+        path: ["content", 0, "attrs", "src"],
+        message: "Images must be uploaded to Pencil.",
+      });
+    });
+
+    it("rejects an external image nested inside a list", () => {
+      const result = checkPostContent(
+        doc({
+          type: "bulletList",
+          content: [{ type: "listItem", content: [p(t("x")), { type: "image", attrs: { src: "https://a.example/a.png" } }] }],
+        }),
+        { imageBase },
+      );
+      expect(result.ok).toBe(false);
+    });
+
+    it("still rejects addresses that aren't http(s)", () => {
+      const result = check("javascript:alert(1)");
+      expect(result.ok || result.issue.message).toBe("Images need an http(s) address.");
+    });
+  });
+
   it.each([1, 4, "2", null])("rejects heading level %j", (level) => {
     expect(issueOf(doc({ type: "heading", attrs: { level }, content: [t("x")] })).message).toBe(
       "Headings must be level 2 or 3.",

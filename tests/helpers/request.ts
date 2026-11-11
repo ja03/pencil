@@ -10,7 +10,10 @@ type RouteHandler<P extends Params> = (
 type CallOptions<P extends Params> = {
   method?: string;
   path?: string;
-  /** Sent as JSON unless it is already a string. */
+  /**
+   * Sent as JSON unless it is already a string, or FormData (sent as
+   * multipart/form-data with its boundary).
+   */
   body?: unknown;
   headers?: Record<string, string>;
   /** The dynamic route segments, e.g. `{ id }` for `/api/posts/[id]`. */
@@ -34,7 +37,9 @@ export async function call<T = any, P extends Params = Params>(
   { method = "GET", path = "/", body, headers = {}, params = {} as P }: CallOptions<P> = {},
 ): Promise<CallResult<T>> {
   const init: RequestInit = { method, headers: { ...headers } };
-  if (body !== undefined) {
+  if (body instanceof FormData) {
+    init.body = body;
+  } else if (body !== undefined) {
     init.body = typeof body === "string" ? body : JSON.stringify(body);
     (init.headers as Record<string, string>)["content-type"] ??= "application/json";
   }

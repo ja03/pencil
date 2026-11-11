@@ -8,6 +8,12 @@ const schema = z.object({
   S3_BUCKET: z.string().min(1),
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),
+  /**
+   * Public base address images are served from: the bucket's URL on MinIO
+   * locally, the R2 public bucket URL or custom domain in production. Post
+   * images must sit under it.
+   */
+  S3_PUBLIC_URL: z.url().transform((url) => url.replace(/\/+$/, "")),
   S3_FORCE_PATH_STYLE: z
     .enum(["true", "false"])
     .default("false")

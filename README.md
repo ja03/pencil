@@ -19,6 +19,7 @@ cp .env.example .env
 docker compose up -d postgres minio mailpit
 npm install
 npx prisma migrate deploy
+npm run db:seed   # creates the bucket and lets browsers read uploaded images
 npm run dev
 ```
 

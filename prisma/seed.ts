@@ -1,7 +1,7 @@
 // Seed data for local development (`docker compose up` runs this after
 // migrating). Must stay idempotent: it runs on every container start.
 import "dotenv/config";
-import { CreateBucketCommand, HeadBucketCommand } from "@aws-sdk/client-s3";
+import { CreateBucketCommand, HeadBucketCommand, PutBucketPolicyCommand } from "@aws-sdk/client-s3";
 import { checkPostContent, type BlockNode } from "../src/contracts/post-content";
 import { hashPassword } from "../src/server/auth/password";
 import { db } from "../src/server/db";
@@ -9,12 +9,19 @@ import { env } from "../src/server/env";
 import { excerptOf } from "../src/server/posts/excerpt";
 import { readingMinutesOf } from "../src/server/posts/reading-time";
 import { slugify } from "../src/server/posts/slug";
-import { s3 } from "../src/server/storage";
+import { publicReadPolicy, s3 } from "../src/server/storage";
 
 /** Every demo account signs in with this password. */
 const DEMO_PASSWORD = "pencil-demo";
 
+/** Creates the bucket if needed and lets anyone read images from it. */
 async function ensureBucket() {
+  await createBucket();
+  const Bucket = env().S3_BUCKET;
+  await s3().send(new PutBucketPolicyCommand({ Bucket, Policy: publicReadPolicy(Bucket) }));
+}
+
+async function createBucket() {
   const Bucket = env().S3_BUCKET;
   for (let attempt = 1; ; attempt++) {
     try {
