@@ -5,6 +5,7 @@ import {
   type CommentsResponse,
   type CommentThread,
   type CreateCommentInput,
+  type EditCommentInput,
 } from "@/contracts/comments";
 import { clock } from "@/server/clock";
 import { encodeCursor, type KeysetPosition } from "@/server/http/cursor";
@@ -12,18 +13,31 @@ import { ApiError } from "@/server/http/errors";
 import { isPublished } from "@/server/posts/repository";
 import * as comments from "./repository";
 
+const NO_SUCH_COMMENT = "That comment doesn't exist.";
+
 function toComment(row: comments.CommentRow): Comment {
   return {
     id: row.id,
     parentId: row.parentId,
     body: row.body,
     createdAt: row.createdAt.toISOString(),
+    editedAt: row.editedAt?.toISOString() ?? null,
     author: row.author,
+    deleted: false,
   };
 }
 
+/** A deleted thread keeps only its place: no text, no author. */
 function toThread(row: comments.ThreadRow): CommentThread {
-  return { ...toComment(row), replies: row.replies.map(toComment) };
+  const replies = row.replies.map(toComment);
+  if (!row.deletedAt) return { ...toComment(row), replies };
+  return {
+    id: row.id,
+    parentId: null,
+    createdAt: row.createdAt.toISOString(),
+    deleted: true,
+    replies,
+  };
 }
 
 /**
@@ -44,7 +58,7 @@ function invalidParent(message: string): ApiError {
  */
 async function checkParent(postId: string, parentId: string): Promise<void> {
   const parent = await comments.findCommentPlace(parentId);
-  if (!parent || parent.postId !== postId) throw invalidParent("That comment doesn't exist.");
+  if (!parent || parent.postId !== postId) throw invalidParent(NO_SUCH_COMMENT);
   if (parent.parentId !== null) {
     throw invalidParent("You can only reply to a top-level comment.");
   }
@@ -93,4 +107,47 @@ export async function listComments(
         ? encodeCursor({ at: last.createdAt, id: last.id })
         : null,
   };
+}
+
+/**
+ * A live comment on a published post, for changing it. Deleted comments,
+ * and comments on posts that are deleted, are 404.
+ */
+async function findForChange(id: string) {
+  const row = await comments.findLiveComment(id);
+  if (!row || !(await isPublished(row.postId))) throw new ApiError("NOT_FOUND", NO_SUCH_COMMENT);
+  return row;
+}
+
+/**
+ * Replaces the text of `user`'s comment. Only its author may edit it, and a
+ * real change marks it edited; saving the same text changes nothing.
+ */
+export async function editComment(
+  user: CurrentUser,
+  id: string,
+  input: EditCommentInput,
+): Promise<Comment> {
+  const row = await findForChange(id);
+  if (row.authorId !== user.id) {
+    throw new ApiError("FORBIDDEN", "Only the person who wrote a comment can edit it.");
+  }
+  if (input.body === row.body) return toComment(row);
+  return toComment(await comments.updateCommentBody(id, input.body, clock.now()));
+}
+
+/**
+ * Deletes a comment. Its author may, and so may the author of the post it
+ * is on. A deleted comment with live replies shows as a placeholder; one
+ * without disappears from the thread.
+ */
+export async function deleteComment(user: CurrentUser, id: string): Promise<void> {
+  const row = await findForChange(id);
+  if (row.authorId !== user.id && row.post.authorId !== user.id) {
+    throw new ApiError(
+      "FORBIDDEN",
+      "Only the commenter or the post's author can delete this comment.",
+    );
+  }
+  await comments.softDeleteComment(id, clock.now());
 }

@@ -2,6 +2,7 @@ import type {
   CommentResponse,
   CommentsResponse,
   CreateCommentBody,
+  EditCommentBody,
 } from "@/contracts/comments";
 import { api } from "./api";
 
@@ -33,7 +34,21 @@ export const commentsApi = api.enhanceEndpoints({ addTagTypes: ["Post"] }).injec
       query: ({ postId, ...body }) => ({ url: `/posts/${postId}/comments`, method: "POST", body }),
       invalidatesTags: [POST_LISTS],
     }),
+    /** New text for the reader's own comment. */
+    editComment: build.mutation<CommentResponse, { id: string } & EditCommentBody>({
+      query: ({ id, ...body }) => ({ url: `/comments/${id}`, method: "PATCH", body }),
+    }),
+    /** Deletes the reader's comment, or any comment on their post. */
+    deleteComment: build.mutation<void, string>({
+      query: (id) => ({ url: `/comments/${id}`, method: "DELETE" }),
+      invalidatesTags: [POST_LISTS],
+    }),
   }),
 });
 
-export const { useGetCommentsInfiniteQuery, useCreateCommentMutation } = commentsApi;
+export const {
+  useGetCommentsInfiniteQuery,
+  useCreateCommentMutation,
+  useEditCommentMutation,
+  useDeleteCommentMutation,
+} = commentsApi;

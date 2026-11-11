@@ -5,8 +5,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useId, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { apiErrorOf } from "@/client/api";
 import { selectCurrentUser } from "@/client/auth-slice";
-import { threadsWithPosted } from "@/client/comment-threads";
-import { useCreateCommentMutation, useGetCommentsInfiniteQuery } from "@/client/comments-api";
+import { visibleThreads } from "@/client/comment-threads";
+import {
+  useCreateCommentMutation,
+  useDeleteCommentMutation,
+  useEditCommentMutation,
+  useGetCommentsInfiniteQuery,
+} from "@/client/comments-api";
 import { longDate, timeAgo } from "@/client/format";
 import { useAppSelector } from "@/client/store";
 import {
@@ -24,18 +29,30 @@ const PILL =
 const QUIET_BUTTON =
   "cursor-pointer border-none bg-transparent px-0 py-1.5 text-[13px] font-medium text-mut hover:text-ink";
 
+/** Who may change a comment: its author edits and deletes; the post's author deletes. */
+type Permissions = (comment: Comment) => { mayEdit: boolean; mayDelete: boolean };
+
+/** What a comment reports back once the reader has changed it. */
+type ChangeHandlers = {
+  onEdited: (comment: Comment) => void;
+  onDeleted: (id: string) => void;
+};
+
 /**
  * A post's comments: the first page arrives rendered from the server, older
- * pages load on "Load more", and what the reader posts appears at once.
- * Visitors and unverified readers can read everything and get a prompt
- * when they try to join in.
+ * pages load on "Load more", and what the reader posts, edits or deletes
+ * shows at once. Visitors and unverified readers can read everything and
+ * get a prompt when they try to join in.
  */
 export function CommentsSection({
   postId,
+  postAuthorId,
   initial,
   initialCount,
 }: {
   postId: string;
+  /** The post's author, who may delete any comment on it. */
+  postAuthorId: string;
   /** The first page, rendered on the server. */
   initial: CommentsResponse;
   /** Comments and replies on the post when the page was rendered. */
@@ -46,6 +63,8 @@ export function CommentsSection({
   const pathname = usePathname();
   const toast = useToast();
   const [posted, setPosted] = useState<Comment[]>([]);
+  const [edited, setEdited] = useState<Record<string, Comment>>({});
+  const [deleted, setDeleted] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
 
   // Nothing is fetched until the reader asks for older comments.
@@ -55,8 +74,21 @@ export function CommentsSection({
     { skip: !started || !initial.nextCursor, initialPageParam: initial.nextCursor ?? "" },
   );
   const pages = [initial, ...(started ? (older.data?.pages ?? []) : [])];
-  const threads = threadsWithPosted(pages, posted);
-  const count = initialCount + posted.length;
+  const threads = visibleThreads(pages, { posted, edited, deleted });
+  // Only live comments can be deleted, and each was counted once.
+  const count = Math.max(0, initialCount + posted.length - deleted.length);
+
+  const permissions: Permissions = (comment) => {
+    const mine = !!user && user.id === comment.author.id;
+    return { mayEdit: mine, mayDelete: mine || (!!user && user.id === postAuthorId) };
+  };
+  const changes: ChangeHandlers = {
+    onEdited: (comment) => setEdited((current) => ({ ...current, [comment.id]: comment })),
+    onDeleted: (id) => {
+      setDeleted((current) => (current.includes(id) ? current : [...current, id]));
+      if (replyingTo === id) setReplyingTo(null);
+    },
+  };
 
   const failed = older.isError;
   const loading = started && older.isFetching;
@@ -110,7 +142,7 @@ export function CommentsSection({
       </h2>
 
       {user?.emailVerified ? (
-        <CommentForm
+        <NewCommentForm
           postId={postId}
           label="Add a comment"
           placeholder="Say something kind and specific…"
@@ -132,13 +164,15 @@ export function CommentsSection({
             <ThreadItem
               key={thread.id}
               thread={thread}
+              permissions={permissions}
+              changes={changes}
               replying={replyingTo === thread.id}
               onToggleReply={() => toggleReply(thread.id)}
               replyForm={
-                <CommentForm
+                <NewCommentForm
                   postId={postId}
                   parentId={thread.id}
-                  label={`Reply to @${thread.author.username}`}
+                  label={thread.deleted ? "Reply" : `Reply to @${thread.author.username}`}
                   placeholder="Write a reply…"
                   submitLabel="Reply"
                   autoFocus
@@ -197,11 +231,15 @@ function JoinPrompt({ signedIn, loginHref }: { signedIn: boolean; loginHref: str
 
 function ThreadItem({
   thread,
+  permissions,
+  changes,
   replying,
   onToggleReply,
   replyForm,
 }: {
   thread: CommentThread;
+  permissions: Permissions;
+  changes: ChangeHandlers;
   replying: boolean;
   onToggleReply: () => void;
   replyForm: ReactNode;
@@ -209,8 +247,10 @@ function ThreadItem({
   const nested = "ml-6 border-l border-line pl-4 sm:ml-12";
   return (
     <li className="flex flex-col gap-3.5 border-t border-line py-5">
-      <CommentView comment={thread}>
-        <div className="flex gap-4">
+      {thread.deleted ? (
+        <DeletedCommentView />
+      ) : (
+        <CommentView comment={thread} {...permissions(thread)} {...changes}>
           <button
             type="button"
             onClick={onToggleReply}
@@ -219,43 +259,136 @@ function ThreadItem({
           >
             Reply
           </button>
-        </div>
-      </CommentView>
+        </CommentView>
+      )}
       {thread.replies.length > 0 && (
         <ul
-          aria-label={`Replies to @${thread.author.username}`}
+          aria-label={
+            thread.deleted ? "Replies to a deleted comment" : `Replies to @${thread.author.username}`
+          }
           className="m-0 flex list-none flex-col gap-4 p-0"
         >
           {thread.replies.map((reply) => (
             <li key={reply.id} className={nested}>
-              <CommentView comment={reply} small />
+              <CommentView comment={reply} small {...permissions(reply)} {...changes} />
             </li>
           ))}
         </ul>
       )}
-      {replying && <div className={nested}>{replyForm}</div>}
+      {replying && !thread.deleted && <div className={nested}>{replyForm}</div>}
     </li>
   );
 }
 
-/** One comment: avatar, author, when, and the text as written. */
+function Avatar({ letter, small = false }: { letter: string; small?: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`flex flex-none items-center justify-center rounded-full bg-soft font-serif ${small ? "size-[30px] text-sm" : "size-9 text-base"}`}
+    >
+      {letter}
+    </span>
+  );
+}
+
+/** What is left of a deleted comment whose replies are still there. */
+function DeletedCommentView() {
+  return (
+    <article className="flex items-center gap-3">
+      <Avatar letter="" />
+      <p className="m-0 text-[15px] text-mut italic">[comment deleted]</p>
+    </article>
+  );
+}
+
+/**
+ * One comment: avatar, author, when, and the text as written, marked when
+ * it was edited. Its author can edit it in place; its author and the post's
+ * author can delete it, after a confirmation.
+ */
 function CommentView({
   comment,
   small = false,
+  mayEdit,
+  mayDelete,
+  onEdited,
+  onDeleted,
   children,
 }: {
   comment: Comment;
   small?: boolean;
+  mayEdit: boolean;
+  mayDelete: boolean;
+  /** Actions that come before Edit and Delete, such as Reply. */
   children?: ReactNode;
-}) {
+} & ChangeHandlers) {
+  const toast = useToast();
+  const [editComment] = useEditCommentMutation();
+  const [deleteComment, { isLoading: deleting }] = useDeleteCommentMutation();
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  async function confirmDelete() {
+    try {
+      await deleteComment(comment.id).unwrap();
+      toast.success("Comment deleted.", { key: "comment" });
+      onDeleted(comment.id);
+    } catch (failure) {
+      const apiError = apiErrorOf(failure);
+      if (apiError?.code === "NOT_FOUND") {
+        // Already gone, e.g. deleted in another tab.
+        toast.success("That comment was already deleted.", { key: "comment" });
+        onDeleted(comment.id);
+      } else {
+        toast.error(apiError?.message ?? "Couldn't delete the comment. Please try again.", {
+          key: "comment",
+        });
+        setConfirming(false);
+      }
+    }
+  }
+
+  const actions = confirming ? (
+    <div role="group" aria-label="Delete this comment?" className="flex flex-wrap items-center gap-4">
+      <span className="text-[13px] text-ink">Delete this comment?</span>
+      <button
+        type="button"
+        onClick={confirmDelete}
+        disabled={deleting}
+        className={`${QUIET_BUTTON} font-semibold text-err-ink hover:text-err-ink disabled:cursor-wait disabled:opacity-60`}
+      >
+        {deleting ? "Deleting…" : "Delete"}
+      </button>
+      <button
+        type="button"
+        onClick={() => setConfirming(false)}
+        disabled={deleting}
+        className={QUIET_BUTTON}
+      >
+        Cancel
+      </button>
+    </div>
+  ) : (
+    (children || mayEdit || mayDelete) && (
+      <div className="flex gap-4">
+        {children}
+        {mayEdit && (
+          <button type="button" onClick={() => setEditing(true)} className={QUIET_BUTTON}>
+            Edit
+          </button>
+        )}
+        {mayDelete && (
+          <button type="button" onClick={() => setConfirming(true)} className={QUIET_BUTTON}>
+            Delete
+          </button>
+        )}
+      </div>
+    )
+  );
+
   return (
     <article className="flex gap-3">
-      <span
-        aria-hidden="true"
-        className={`flex flex-none items-center justify-center rounded-full bg-soft font-serif ${small ? "size-[30px] text-sm" : "size-9 text-base"}`}
-      >
-        {comment.author.username.charAt(0).toUpperCase()}
-      </span>
+      <Avatar letter={comment.author.username.charAt(0).toUpperCase()} small={small} />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <p className="m-0 flex flex-wrap items-baseline gap-x-2.5 gap-y-1 text-[13px]">
           <Link
@@ -273,26 +406,50 @@ function CommentView({
           >
             {timeAgo(comment.createdAt)}
           </time>
+          {comment.editedAt && (
+            <time
+              dateTime={comment.editedAt}
+              title={`Edited ${longDate(comment.editedAt)}`}
+              className="text-mut"
+            >
+              edited
+            </time>
+          )}
         </p>
-        <p className="m-0 text-[15px] leading-[1.6] break-words whitespace-pre-wrap">
-          {comment.body}
-        </p>
-        {children}
+        {editing ? (
+          <CommentForm
+            label="Edit your comment"
+            placeholder="Say something kind and specific…"
+            submitLabel="Save"
+            savingLabel="Saving…"
+            initialBody={comment.body}
+            autoFocus
+            save={async (body) => (await editComment({ id: comment.id, body }).unwrap()).comment}
+            onSaved={(saved) => {
+              setEditing(false);
+              onEdited(saved);
+            }}
+            onCancel={() => setEditing(false)}
+          />
+        ) : (
+          <>
+            <p className="m-0 text-[15px] leading-[1.6] break-words whitespace-pre-wrap">
+              {comment.body}
+            </p>
+            {actions}
+          </>
+        )}
       </div>
     </article>
   );
 }
 
-/** The box for a new comment or a reply. Cmd/Ctrl+Enter posts it. */
-function CommentForm({
+/** The box for a new comment or a reply, posted through the API. */
+function NewCommentForm({
   postId,
   parentId = null,
-  label,
-  placeholder,
-  submitLabel,
-  autoFocus = false,
   onPosted,
-  onCancel,
+  ...rest
 }: {
   postId: string;
   parentId?: string | null;
@@ -303,10 +460,50 @@ function CommentForm({
   onPosted: (comment: Comment) => void;
   onCancel?: () => void;
 }) {
+  const [create] = useCreateCommentMutation();
+  return (
+    <CommentForm
+      {...rest}
+      savingLabel="Posting…"
+      clearOnSave
+      save={async (body) => (await create({ postId, body, parentId }).unwrap()).comment}
+      onSaved={onPosted}
+    />
+  );
+}
+
+/**
+ * The box for writing a comment: a new one, a reply, or new text for an
+ * existing one. Cmd/Ctrl+Enter saves it.
+ */
+function CommentForm({
+  label,
+  placeholder,
+  submitLabel,
+  savingLabel,
+  initialBody = "",
+  clearOnSave = false,
+  autoFocus = false,
+  save,
+  onSaved,
+  onCancel,
+}: {
+  label: string;
+  placeholder: string;
+  submitLabel: string;
+  savingLabel: string;
+  initialBody?: string;
+  /** Empty the box after saving, ready for the next comment. */
+  clearOnSave?: boolean;
+  autoFocus?: boolean;
+  save: (body: string) => Promise<Comment>;
+  onSaved: (comment: Comment) => void;
+  onCancel?: () => void;
+}) {
   const id = useId();
   const toast = useToast();
-  const [create, { isLoading }] = useCreateCommentMutation();
-  const [body, setBody] = useState("");
+  const [isLoading, setLoading] = useState(false);
+  const [body, setBody] = useState(initialBody);
   const [error, setError] = useState<string | null>(null);
 
   // The server trims, so the trimmed text is what counts against the limit.
@@ -318,19 +515,22 @@ function CommentForm({
     event.preventDefault();
     if (!canSend) return;
     setError(null);
+    setLoading(true);
     try {
-      const { comment } = await create({ postId, body, parentId }).unwrap();
-      setBody("");
-      onPosted(comment);
+      const comment = await save(body);
+      if (clearOnSave) setBody("");
+      onSaved(comment);
     } catch (failure) {
       const apiError = apiErrorOf(failure);
       const fieldError = apiError?.fields?.body?.[0] ?? apiError?.fields?.parentId?.[0];
       if (fieldError) setError(fieldError);
       else {
-        toast.error(apiError?.message ?? "Couldn't post your comment. Please try again.", {
+        toast.error(apiError?.message ?? "Couldn't save your comment. Please try again.", {
           key: "comment",
         });
       }
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -391,7 +591,7 @@ function CommentForm({
             disabled={!canSend}
             className={`${PILL} border-none bg-btn text-on-btn disabled:cursor-not-allowed disabled:opacity-50`}
           >
-            {isLoading ? "Posting…" : submitLabel}
+            {isLoading ? savingLabel : submitLabel}
           </button>
         </div>
       </div>

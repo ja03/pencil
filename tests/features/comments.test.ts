@@ -67,7 +67,9 @@ describe("POST /api/posts/:id/comments", () => {
       parentId: null,
       body: "Lovely piece.",
       createdAt: "2026-01-01T00:00:00.000Z",
+      editedAt: null,
       author: { id: reader.user.id, username: reader.user.username },
+      deleted: false,
     });
     const row = await db().comment.findUniqueOrThrow({ where: { id: res.body.comment.id } });
     expect(row).toMatchObject({ postId: post.id, authorId: reader.user.id, body: "Lovely piece." });
@@ -258,7 +260,9 @@ describe("GET /api/posts/:id/comments", () => {
       parentId: null,
       body: "Comment 2",
       createdAt: "2026-01-01T00:00:02.000Z",
+      editedAt: null,
       author: { id: reader.user.id, username: reader.user.username },
+      deleted: false,
       replies: [],
     });
   });
