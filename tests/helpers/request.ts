@@ -1,17 +1,20 @@
 import { NextRequest } from "next/server";
 
-type RouteHandler = (
+type Params = Record<string, string | string[]>;
+
+type RouteHandler<P extends Params> = (
   request: NextRequest,
-  context: { params: Promise<Record<string, string | string[]>> },
+  context: { params: Promise<P> },
 ) => Response | Promise<Response>;
 
-type CallOptions = {
+type CallOptions<P extends Params> = {
   method?: string;
   path?: string;
   /** Sent as JSON unless it is already a string. */
   body?: unknown;
   headers?: Record<string, string>;
-  params?: Record<string, string | string[]>;
+  /** The dynamic route segments, e.g. `{ id }` for `/api/posts/[id]`. */
+  params?: P;
 };
 
 export type CallResult<T = unknown> = {
@@ -26,9 +29,9 @@ export type CallResult<T = unknown> = {
  */
 // Tests assert on arbitrary JSON paths, so the body defaults to `any`.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function call<T = any>(
-  handler: RouteHandler,
-  { method = "GET", path = "/", body, headers = {}, params = {} }: CallOptions = {},
+export async function call<T = any, P extends Params = Params>(
+  handler: RouteHandler<P>,
+  { method = "GET", path = "/", body, headers = {}, params = {} as P }: CallOptions<P> = {},
 ): Promise<CallResult<T>> {
   const init: RequestInit = { method, headers: { ...headers } };
   if (body !== undefined) {

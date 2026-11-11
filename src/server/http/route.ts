@@ -34,14 +34,26 @@ export function route<Ctx>(handler: Handler<Ctx>): Handler<Ctx> {
   };
 }
 
+/** The largest JSON body any route accepts. A long post is well under this. */
+export const MAX_BODY_BYTES = 2 * 1024 * 1024;
+
+const TOO_LARGE = "Request body is too large.";
+
 /** Reads the JSON body and validates it; throws a 400 when either step fails. */
 export async function parseJson<S extends z.ZodType>(
   request: Request,
   schema: S,
 ): Promise<z.output<S>> {
+  if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) {
+    throw new ApiError("VALIDATION_FAILED", TOO_LARGE);
+  }
+  const text = await request.text();
+  if (Buffer.byteLength(text) > MAX_BODY_BYTES) {
+    throw new ApiError("VALIDATION_FAILED", TOO_LARGE);
+  }
   let raw: unknown;
   try {
-    raw = await request.json();
+    raw = JSON.parse(text);
   } catch {
     throw new ApiError("VALIDATION_FAILED", "Request body must be valid JSON.");
   }

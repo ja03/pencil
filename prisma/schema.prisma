@@ -22,6 +22,32 @@ model User {
   tokenVersion    Int       @default(0)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  posts           Post[]
 
   @@map("users")
+}
+
+model Post {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  authorId    String    @db.Uuid
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  /// From the title at creation, with -2, -3… on collision. Never changes.
+  slug        String    @unique
+  title       String
+  /// As the author wrote it. Null means cards and previews use `excerpt`.
+  description String?
+  /// The first ~160 characters of the content's text, refreshed on every save.
+  excerpt     String
+  /// Tiptap JSON, already checked against the whitelist. Never raw HTML.
+  content     Json
+  coverUrl    String?
+  /// Null while the post is a draft.
+  publishedAt DateTime?
+  /// Soft delete: a deleted post is 404 everywhere.
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([authorId])
+  @@map("posts")
 }

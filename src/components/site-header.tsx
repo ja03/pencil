@@ -17,8 +17,9 @@ export function SiteHeader() {
   const dispatch = useAppDispatch();
   const [logout, { isLoading: loggingOut }] = useLogoutMutation();
 
-  // The auth screens have their own full-page layout.
+  // The auth screens and the editor have their own full-page layout.
   if (pathname === "/login" || pathname === "/register") return null;
+  if (pathname === "/write" || pathname.startsWith("/write/")) return null;
 
   async function onLogout() {
     try {
@@ -39,6 +40,9 @@ export function SiteHeader() {
       <div className="flex items-center gap-2.5">
         {user ? (
           <>
+            <Link href="/write" className={`${pill} bg-btn text-on-btn`}>
+              Write
+            </Link>
             <span
               title={`Signed in as @${user.username}`}
               className="flex size-11 items-center justify-center rounded-full bg-acc font-serif text-lg text-bg"
