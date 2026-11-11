@@ -146,7 +146,8 @@ export function forgotPassword(email: string): void {
 /**
  * Sets the new password from a reset link and signs this browser in. Bumping
  * `tokenVersion` logs out every other session, so whoever knew the old
- * password loses access. A used, expired or unknown token is a 400.
+ * password loses access. The link came by email, so the user is verified too.
+ * A used, expired or unknown token is a 400.
  */
 export async function resetPassword({ token, password }: ResetPasswordInput): Promise<SignedIn> {
   const userId = await redeemToken("RESET_PASSWORD", token);
@@ -156,7 +157,7 @@ export async function resetPassword({ token, password }: ResetPasswordInput): Pr
       "This link has expired or was already used. Ask for a new one.",
     );
   }
-  const user = await replacePassword(userId, await hashPassword(password));
+  const user = await replacePassword(userId, await hashPassword(password), clock.now());
   return startSession(user);
 }
 

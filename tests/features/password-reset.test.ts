@@ -8,6 +8,7 @@ import { POST as resetRoute } from "@/app/api/auth/reset-password/route";
 import { POST as verifyRoute } from "@/app/api/auth/verify-email/route";
 import { GET as myPosts } from "@/app/api/me/posts/route";
 import { EMAIL_LINK_REPLY } from "@/contracts/auth";
+import { db } from "@/server/db";
 import { createUser, signedIn, TEST_PASSWORD } from "../helpers/auth";
 import { fakeClock } from "../helpers/clock";
 import { emailsTo, resetTokenFor, verificationTokenFor } from "../helpers/mail";
@@ -150,6 +151,28 @@ describe("POST /api/auth/reset-password", () => {
 
     expect((await logIn(user.email, NEW_PASSWORD)).status).toBe(200);
     expect((await logIn(user.email, TEST_PASSWORD)).status).toBe(401);
+  });
+
+  it("marks an unverified user verified, since the link reached their inbox", async () => {
+    const user = await createUser();
+    await forgot(user.email);
+
+    const res = await reset(await resetTokenFor(user.email));
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.emailVerified).toBe(true);
+    const stored = await db().user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(stored.emailVerifiedAt).toBeInstanceOf(Date);
+  });
+
+  it("keeps an already-verified user's first verification date", async () => {
+    const { user, token } = await withResetLink();
+    const firstVerified = user.emailVerifiedAt;
+
+    expect((await reset(token)).status).toBe(200);
+
+    const stored = await db().user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(stored.emailVerifiedAt).toEqual(firstVerified);
   });
 
   it("logs out every session from before the reset", async () => {
