@@ -2,19 +2,22 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { longDate } from "@/client/format";
 import { CommentIcon, commentsLabel } from "@/components/comment-icon";
 import { CommentsSection } from "@/components/comments-section";
 import { LikeButton } from "@/components/like-button";
 import { PostCover } from "@/components/post-cover";
+import { MoreLikeThis, MoreLikeThisSkeleton } from "@/components/recommended-posts";
 import type { CommentsResponse } from "@/contracts/comments";
+import type { CurrentUser } from "@/contracts/auth";
 import type { Post } from "@/contracts/posts";
 import { tagPath } from "@/contracts/tags";
 import { profilePath } from "@/contracts/users";
 import { getCurrentUser } from "@/server/auth/service";
 import { listComments } from "@/server/comments/service";
 import { findPostBySlug } from "@/server/posts/service";
+import { similarTo } from "@/server/recommendations/service";
 
 type Props = PageProps<"/posts/[slug]">;
 
@@ -43,19 +46,38 @@ async function PostView({ params }: Pick<Props, "params">) {
   const post = await findPostBySlug(viewer, slug);
   if (!post) notFound();
   // Drafts have no comments: nobody can comment until the post is published.
-  const comments = post.status === "published" ? await listComments(post.id, null) : null;
-  return (
-    <PostArticle post={post} comments={comments} isAuthor={viewer?.id === post.author.id} />
+  const published = post.status === "published";
+  const comments = published ? await listComments(post.id, null) : null;
+  // Related posts stream in after the article, so they never hold it up.
+  const related = published && (
+    <Suspense fallback={<MoreLikeThisSkeleton />}>
+      <RelatedPosts viewer={viewer} postId={post.id} />
+    </Suspense>
   );
+  return (
+    <PostArticle
+      post={post}
+      comments={comments}
+      related={related}
+      isAuthor={viewer?.id === post.author.id}
+    />
+  );
+}
+
+async function RelatedPosts({ viewer, postId }: { viewer: CurrentUser | null; postId: string }) {
+  return <MoreLikeThis result={await similarTo(viewer, postId)} />;
 }
 
 function PostArticle({
   post,
   comments,
+  related,
   isAuthor,
 }: {
   post: Post;
   comments: CommentsResponse | null;
+  /** "More like this"; published posts only. */
+  related: ReactNode;
   isAuthor: boolean;
 }) {
   const draft = post.status === "draft";
@@ -167,6 +189,8 @@ function PostArticle({
         // Built on the server from whitelisted JSON, with every value escaped.
         dangerouslySetInnerHTML={{ __html: post.html }}
       />
+
+      {related}
 
       {comments && (
         <CommentsSection

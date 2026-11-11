@@ -7,18 +7,32 @@ import { CommentIcon, commentsLabel } from "./comment-icon";
 import { HeartIcon, likesLabel } from "./heart-icon";
 import { PostCover } from "./post-cover";
 
-/** A feed card: cover, reading time, tags, title, summary, author, date, likes and comments. */
-export function PostCard({ post }: { post: PostSummary }) {
+/**
+ * A feed card: cover, reading time, tags, title, summary, author, date, likes
+ * and comments. The compact variant, for recommendation rows, has a squarer
+ * cover, a smaller title and no summary.
+ */
+export function PostCard({
+  post,
+  variant = "full",
+}: {
+  post: PostSummary;
+  variant?: "full" | "compact";
+}) {
   const href = `/posts/${post.slug}`;
+  const compact = variant === "compact";
   return (
     <article className="flex h-full flex-col gap-3.5 rounded-[18px] border border-line bg-surf p-2.5 text-ink">
       <Link
         href={href}
         tabIndex={-1}
         aria-hidden="true"
-        className="relative block aspect-[16/10] overflow-hidden rounded-xl"
+        className={`relative block overflow-hidden rounded-xl ${compact ? "aspect-[4/3]" : "aspect-[16/10]"}`}
       >
-        <PostCover post={post} glyphClassName="text-[150px] sm:text-[170px]" />
+        <PostCover
+          post={post}
+          glyphClassName={compact ? "text-[120px]" : "text-[150px] sm:text-[170px]"}
+        />
         <span className="label-mono absolute top-2.5 left-2.5 rounded-full bg-[rgba(28,21,16,0.55)] px-[9px] py-[5px] text-[10px] text-[#FBF4E8]">
           {post.readingMinutes} min read
         </span>
@@ -38,12 +52,16 @@ export function PostCard({ post }: { post: PostSummary }) {
             ))}
           </ul>
         )}
-        <h3 className="m-0 font-serif text-2xl leading-[1.15] font-normal tracking-[-0.01em]">
+        <h3
+          className={`m-0 font-serif leading-[1.15] font-normal tracking-[-0.01em] ${compact ? "text-[19px]" : "text-2xl"}`}
+        >
           <Link href={href} className="text-ink no-underline hover:underline">
             {post.title}
           </Link>
         </h3>
-        <p className="m-0 line-clamp-2 text-sm leading-[1.55] text-mut">{post.summary}</p>
+        {!compact && (
+          <p className="m-0 line-clamp-2 text-sm leading-[1.55] text-mut">{post.summary}</p>
+        )}
         <div className="mt-auto flex min-w-0 items-center gap-2 pt-1.5 text-xs text-mut">
           <span
             aria-hidden="true"
@@ -81,11 +99,11 @@ export function PostCard({ post }: { post: PostSummary }) {
 }
 
 /** A card-shaped placeholder while posts load. */
-export function PostCardSkeleton() {
+export function PostCardSkeleton({ variant = "full" }: { variant?: "full" | "compact" }) {
   const bar = "rounded-md bg-soft";
   return (
     <div aria-hidden="true" className="flex flex-col gap-3.5 rounded-[18px] border border-line bg-surf p-2.5">
-      <div className="aspect-[16/10] rounded-xl bg-soft" />
+      <div className={`rounded-xl bg-soft ${variant === "compact" ? "aspect-[4/3]" : "aspect-[16/10]"}`} />
       <div className="flex flex-col gap-2.5 px-1.5 pb-2.5">
         <div className={`${bar} h-[18px] w-[90%]`} />
         <div className={`${bar} h-[18px] w-[70%]`} />

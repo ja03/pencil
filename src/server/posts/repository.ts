@@ -204,6 +204,16 @@ export async function findPublishedPage(
   return rows as PostSummaryRow[];
 }
 
+/** The published, non-deleted posts among `ids`, in no particular order. */
+export async function findPublishedSummaries(ids: string[]): Promise<PostSummaryRow[]> {
+  if (ids.length === 0) return [];
+  const rows = await db().post.findMany({
+    where: { id: { in: ids }, ...PUBLISHED },
+    select: summaryFields,
+  });
+  return rows as PostSummaryRow[];
+}
+
 /** Whether `id` is a published post that hasn't been deleted. Reads no post fields. */
 export async function isPublished(id: string): Promise<boolean> {
   return (await db().post.count({ where: { id, ...PUBLISHED } })) > 0;
