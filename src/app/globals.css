@@ -22,6 +22,11 @@
   --toast-ink: #f7efe2;
   --toast-mut: #c9b8a4;
   --toast-line: #4a3a2e;
+  --danger-btn: #a3291f;
+  --pub-bg: #e1ebdd;
+  --pub-ink: #2f5a2a;
+  --draft-bg: #f1e3c9;
+  --draft-ink: #6b4610;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -45,6 +50,11 @@
     --toast-ink: #1c1510;
     --toast-mut: #6a5848;
     --toast-line: #d6c7b0;
+    --danger-btn: #b33a2c;
+    --pub-bg: #1e2e1c;
+    --pub-ink: #a9d49f;
+    --draft-bg: #33281a;
+    --draft-ink: #f0c98c;
   }
 }
 
@@ -68,6 +78,11 @@
   --color-toast-ink: var(--toast-ink);
   --color-toast-mut: var(--toast-mut);
   --color-toast-line: var(--toast-line);
+  --color-danger-btn: var(--danger-btn);
+  --color-pub-bg: var(--pub-bg);
+  --color-pub-ink: var(--pub-ink);
+  --color-draft-bg: var(--draft-bg);
+  --color-draft-ink: var(--draft-ink);
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-serif: var(--font-newsreader), Georgia, serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;

@@ -2,6 +2,8 @@
 import { z } from "zod";
 
 export const USERNAME_PATTERN = /^[a-z0-9_]+$/;
+export const USERNAME_MIN_LENGTH = 3;
+export const USERNAME_MAX_LENGTH = 20;
 export const PASSWORD_MIN_LENGTH = 8;
 // bcrypt only reads the first 72 bytes, so longer passwords would be
 // silently truncated.
@@ -17,8 +19,8 @@ export const registerInput = z.object({
   username: z
     .string()
     .trim()
-    .min(3, "Use at least 3 characters.")
-    .max(20, "Use at most 20 characters.")
+    .min(USERNAME_MIN_LENGTH, `Use at least ${USERNAME_MIN_LENGTH} characters.`)
+    .max(USERNAME_MAX_LENGTH, `Use at most ${USERNAME_MAX_LENGTH} characters.`)
     .regex(USERNAME_PATTERN, "Use only lowercase letters, numbers and _."),
   email,
   password: z

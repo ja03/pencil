@@ -7,6 +7,7 @@ import { longDate } from "@/client/format";
 import { PostCover } from "@/components/post-cover";
 import type { Post } from "@/contracts/posts";
 import { tagPath } from "@/contracts/tags";
+import { profilePath } from "@/contracts/users";
 import { getCurrentUser } from "@/server/auth/service";
 import { findPostBySlug } from "@/server/posts/service";
 
@@ -87,7 +88,12 @@ function PostArticle({ post, isAuthor }: { post: Post; isAuthor: boolean }) {
               {post.author.username.charAt(0).toUpperCase()}
             </span>
             <span className="flex flex-col gap-0.5">
-              <span className="text-[15px] font-medium">@{post.author.username}</span>
+              <Link
+                href={profilePath(post.author.username)}
+                className="text-[15px] font-medium text-ink no-underline hover:underline"
+              >
+                @{post.author.username}
+              </Link>
               <span className="text-[13px] text-mut">
                 {post.publishedAt ? (
                   <>

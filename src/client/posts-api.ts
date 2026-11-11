@@ -8,11 +8,18 @@ import type { TagSuggestionsResponse } from "@/contracts/tags";
 import { api } from "./api";
 
 /**
- * Which list to page through, and the cursor its server-rendered first page
- * ended on. The cursor is part of the key, so each server render gets its own
- * cache entry and pages never mix across refreshes.
+ * Which list to page through (the feed, a tag page or an author's profile),
+ * and the cursor its server-rendered first page ended on. The cursor is part
+ * of the key, so each server render gets its own cache entry and pages never
+ * mix across refreshes.
  */
-export type PostListArg = { after: string; tag?: string };
+export type PostListArg = { after: string; tag?: string; author?: string };
+
+function listUrl({ tag, author }: PostListArg): string {
+  if (tag) return `/tags/${encodeURIComponent(tag)}/posts`;
+  if (author) return `/users/${encodeURIComponent(author)}/posts`;
+  return "/posts";
+}
 
 const LIST = { type: "Post", id: "LIST" } as const;
 
@@ -31,14 +38,19 @@ export const postsApi = api.enhanceEndpoints({ addTagTypes: ["Post"] }).injectEn
       query: (id) => ({ url: `/posts/${id}/publish`, method: "POST" }),
       invalidatesTags: (_result, _error, id) => [{ type: "Post", id }, LIST],
     }),
-    /** The feed, or a tag page, after its server-rendered first page. */
+    /** Soft-deletes the post; every list that showed it refreshes. */
+    deletePost: build.mutation<void, string>({
+      query: (id) => ({ url: `/posts/${id}`, method: "DELETE" }),
+      invalidatesTags: (_result, _error, id) => [{ type: "Post", id }, LIST],
+    }),
+    /** The feed, a tag page or a profile, after its server-rendered first page. */
     getFeed: build.infiniteQuery<FeedResponse, PostListArg, string>({
       infiniteQueryOptions: {
         initialPageParam: "",
         getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
       },
       query: ({ queryArg, pageParam }) => ({
-        url: queryArg.tag ? `/tags/${encodeURIComponent(queryArg.tag)}/posts` : "/posts",
+        url: listUrl(queryArg),
         params: { cursor: pageParam },
       }),
       providesTags: [LIST],
@@ -55,6 +67,7 @@ export const {
   useCreatePostMutation,
   useUpdatePostMutation,
   usePublishPostMutation,
+  useDeletePostMutation,
   useGetFeedInfiniteQuery,
   useSearchTagsQuery,
 } = postsApi;

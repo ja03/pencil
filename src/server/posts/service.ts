@@ -4,6 +4,8 @@ import {
   FEED_PAGE_SIZE,
   type CreatePostInput,
   type FeedResponse,
+  type MyPost,
+  type MyPostsResponse,
   type Post,
   type PostSummary,
   type UpdatePostInput,
@@ -11,6 +13,7 @@ import {
 import { normalizeTag, TAG_SUGGESTION_LIMIT, type TagSuggestionsResponse } from "@/contracts/tags";
 import { clock } from "@/server/clock";
 import { ApiError } from "@/server/http/errors";
+import { findUserByUsername } from "@/server/users/repository";
 import { encodeCursor, type FeedPosition } from "./cursor";
 import { excerptOf } from "./excerpt";
 import { readingMinutesOf } from "./reading-time";
@@ -177,8 +180,48 @@ export async function publishPost(user: CurrentUser, id: string): Promise<Post> 
 }
 
 /**
+ * Deletes the author's post, draft or published. It is a soft delete: the
+ * post is 404 everywhere from then on but the row stays. Only the author may
+ * delete: others get 404 for a draft and 403 for a published post.
+ */
+export async function deletePost(user: CurrentUser, id: string): Promise<void> {
+  await findOwnForChange(user, id, "delete");
+  await posts.softDeletePost(id, clock.now());
+}
+
+function toMyPost(row: posts.OwnPostRow): MyPost {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    coverUrl: row.coverUrl,
+    status: row.publishedAt ? "published" : "draft",
+    publishedAt: row.publishedAt?.toISOString() ?? null,
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+/** The My posts dashboard: every draft and published post `user` has, latest change first. */
+export async function listOwnPosts(user: CurrentUser): Promise<MyPostsResponse> {
+  return { posts: (await posts.findOwnPosts(user.id)).map(toMyPost) };
+}
+
+/**
+ * One page of an author's published posts, for their profile. Null when
+ * nobody has that (normalized) username.
+ */
+export async function listPublishedBy(
+  username: string,
+  after: FeedPosition | null,
+): Promise<FeedResponse | null> {
+  const author = await findUserByUsername(username);
+  return author && listPublished(after, { authorId: author.id });
+}
+
+/**
  * One page of published posts, newest first, after `after` (null for the
- * first page), optionally only those with a tag. Readable without an account.
+ * first page), optionally only those with a tag or by an author. Readable
+ * without an account.
  */
 export async function listPublished(
   after: FeedPosition | null,

@@ -153,6 +153,8 @@ const summaryFields = {
 export type PostListFilter = {
   /** Only posts with this (normalized) tag. */
   tag?: string;
+  /** Only posts by this author. */
+  authorId?: string;
 };
 
 const PUBLISHED = { publishedAt: { not: null }, deletedAt: null } as const;
@@ -163,8 +165,8 @@ export type PostSummaryRow = Prisma.PostGetPayload<{ select: typeof summaryField
 
 /**
  * One page of published, non-deleted posts, newest published first, starting
- * after `after` (keyset paging on publishedAt, then id). Tag pages narrow it
- * with `filter`.
+ * after `after` (keyset paging on publishedAt, then id). Tag and profile pages
+ * narrow it with `filter`.
  */
 export async function findPublishedPage(
   after: FeedPosition | null,
@@ -175,6 +177,7 @@ export async function findPublishedPage(
     where: {
       AND: [
         filter.tag ? { tags: { some: { tag: { name: filter.tag } } } } : {},
+        filter.authorId ? { authorId: filter.authorId } : {},
         PUBLISHED,
         after
           ? {
@@ -196,6 +199,42 @@ export async function findPublishedPage(
 /** How many published, non-deleted posts carry `tag`. */
 export function countPublishedWithTag(tag: string): Promise<number> {
   return db().post.count({ where: { ...PUBLISHED, tags: { some: { tag: { name: tag } } } } });
+}
+
+/** How many published, non-deleted posts `authorId` has. */
+export function countPublishedBy(authorId: string): Promise<number> {
+  return db().post.count({ where: { ...PUBLISHED, authorId } });
+}
+
+const ownListFields = {
+  id: true,
+  slug: true,
+  title: true,
+  coverUrl: true,
+  publishedAt: true,
+  updatedAt: true,
+} as const;
+
+export type OwnPostRow = Prisma.PostGetPayload<{ select: typeof ownListFields }>;
+
+/**
+ * Every draft and published post by `authorId` that hasn't been deleted,
+ * most recently changed first.
+ */
+export function findOwnPosts(authorId: string): Promise<OwnPostRow[]> {
+  return db().post.findMany({
+    where: { authorId, deletedAt: null },
+    orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    select: ownListFields,
+  });
+}
+
+/**
+ * Marks the post deleted at `at`. The row, its tags and its slug stay; every
+ * read filters on `deletedAt`, so it is gone everywhere at once.
+ */
+export async function softDeletePost(id: string, at: Date): Promise<void> {
+  await db().post.updateMany({ where: { id, deletedAt: null }, data: { deletedAt: at } });
 }
 
 export type TagUsage = { name: string; postCount: number };
