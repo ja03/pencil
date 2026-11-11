@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useLogoutMutation } from "@/client/api";
-import { selectCurrentUser, signedOut } from "@/client/auth-slice";
-import { useAppDispatch, useAppSelector } from "@/client/store";
+import { usePathname } from "next/navigation";
+import { selectCurrentUser } from "@/client/auth-slice";
+import { useAppSelector } from "@/client/store";
+import { useLogOut } from "@/client/use-log-out";
 import { profilePath } from "@/contracts/users";
 import { Logo } from "./logo";
 
@@ -17,23 +17,11 @@ const navLink =
 export function SiteHeader() {
   const user = useAppSelector(selectCurrentUser);
   const pathname = usePathname();
-  const router = useRouter();
-  const dispatch = useAppDispatch();
-  const [logout, { isLoading: loggingOut }] = useLogoutMutation();
+  const { logOut, loggingOut } = useLogOut();
 
   // The auth screens and the editor have their own full-page layout.
   if (pathname === "/login" || pathname === "/register") return null;
   if (pathname === "/write" || pathname.startsWith("/write/")) return null;
-
-  async function onLogout() {
-    try {
-      await logout().unwrap();
-    } finally {
-      dispatch(signedOut());
-      router.push("/");
-      router.refresh();
-    }
-  }
 
   return (
     <header className="mx-auto flex w-full max-w-[1280px] items-center justify-between gap-4 px-4 py-3.5 sm:px-10 sm:py-5">
@@ -52,6 +40,13 @@ export function SiteHeader() {
             className={navLink}
           >
             My posts
+          </Link>
+          <Link
+            href="/settings"
+            aria-current={pathname === "/settings" ? "page" : undefined}
+            className={navLink}
+          >
+            Settings
           </Link>
         </nav>
       )}
@@ -72,7 +67,7 @@ export function SiteHeader() {
             </Link>
             <button
               type="button"
-              onClick={onLogout}
+              onClick={logOut}
               disabled={loggingOut}
               className={`${pill} cursor-pointer border border-line bg-surf text-ink disabled:opacity-60`}
             >
