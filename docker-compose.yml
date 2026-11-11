@@ -1,0 +1,70 @@
+# Local stack: `docker compose up` starts the app plus every service it needs,
+# then migrates and seeds. Ports are published so `npm run dev` and `npm test`
+# on the host can use the same Postgres, MinIO and Mailpit.
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: pencil
+      POSTGRES_PASSWORD: pencil
+      POSTGRES_DB: pencil
+    ports:
+      - "5433:5432" # 5433 on the host, so a local Postgres on 5432 can keep running
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Creates the separate `pencil_test` database the test suite resets freely.
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pencil -d pencil"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # Official MinIO images are no longer published on Docker Hub; this is the
+  # community build of the same server, pinned to a release.
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: pencil
+      MINIO_ROOT_PASSWORD: pencil-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI and API
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      mailpit:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://pencil:pencil@postgres:5432/pencil
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: pencil
+      S3_ACCESS_KEY_ID: pencil
+      S3_SECRET_ACCESS_KEY: pencil-secret
+      S3_FORCE_PATH_STYLE: "true"
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      MAIL_FROM: Pencil <no-reply@pencil.local>
+    # Same start path as production (migrate, then serve), plus the seed.
+    command: ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && npx next start"]
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres-data:
+  minio-data:

@@ -1,0 +1,15 @@
+// Environment for the test suite: the `docker compose` services, but a
+// separate database and bucket so tests can wipe them freely.
+// Override with TEST_DATABASE_URL / TEST_S3_ENDPOINT (CI sets these).
+export const testEnv = {
+  NODE_ENV: "test",
+  DATABASE_URL:
+    process.env.TEST_DATABASE_URL ??
+    "postgresql://pencil:pencil@localhost:5433/pencil_test",
+  S3_ENDPOINT: process.env.TEST_S3_ENDPOINT ?? "http://localhost:9000",
+  S3_REGION: "us-east-1",
+  S3_BUCKET: "pencil-test",
+  S3_ACCESS_KEY_ID: process.env.TEST_S3_ACCESS_KEY_ID ?? "pencil",
+  S3_SECRET_ACCESS_KEY: process.env.TEST_S3_SECRET_ACCESS_KEY ?? "pencil-secret",
+  S3_FORCE_PATH_STYLE: "true",
+} as const;
