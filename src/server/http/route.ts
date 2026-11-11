@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { ApiError, errorResponse } from "./errors";
@@ -14,6 +15,9 @@ export function route<Ctx>(handler: Handler<Ctx>): Handler<Ctx> {
     try {
       return await handler(request, context);
     } catch (error) {
+      // Next signals things like "bail out of prerendering" by throwing; let
+      // those through instead of turning them into a 500.
+      unstable_rethrow(error);
       if (error instanceof ApiError) {
         return errorResponse(error.code, error.message, error.fields);
       }

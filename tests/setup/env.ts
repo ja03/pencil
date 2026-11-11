@@ -12,4 +12,7 @@ export const testEnv = {
   S3_ACCESS_KEY_ID: process.env.TEST_S3_ACCESS_KEY_ID ?? "pencil",
   S3_SECRET_ACCESS_KEY: process.env.TEST_S3_SECRET_ACCESS_KEY ?? "pencil-secret",
   S3_FORCE_PATH_STYLE: "true",
+  SESSION_SECRET: "test-session-secret-0123456789-abcdefghijkl",
+  // The lowest bcrypt cost, so hashing doesn't dominate test time.
+  BCRYPT_ROUNDS: "4",
 } as const;

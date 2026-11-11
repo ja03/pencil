@@ -1,26 +1,66 @@
 @import "tailwindcss";
 
+/* Design tokens from the UI Design. Dark follows the system for now; the
+   theme cookie (light / dark / system) comes with the settings page. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --bg: #f4eee3;
+  --surf: #fbf8f2;
+  --ink: #2a1e16;
+  --mut: #6a5848;
+  --line: #d6c7b0;
+  --acc: #a64a26;
+  --btn: #241a13;
+  --on-btn: #fbf8f2;
+  --soft: #ebe1d0;
+  --err-bg: #f6dcd7;
+  --err-ink: #a3291f;
+  --ok: #2f6a2a;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #14100c;
+    --surf: #1e1712;
+    --ink: #f2e9da;
+    --mut: #b4a28e;
+    --line: #4a3a2e;
+    --acc: #e08a5e;
+    --btn: #f2e9da;
+    --on-btn: #14100c;
+    --soft: #2a2019;
+    --err-bg: #3a1b17;
+    --err-ink: #f08a7e;
+    --ok: #a9d49f;
   }
 }
 
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surf: var(--surf);
+  --color-ink: var(--ink);
+  --color-mut: var(--mut);
+  --color-line: var(--line);
+  --color-acc: var(--acc);
+  --color-btn: var(--btn);
+  --color-on-btn: var(--on-btn);
+  --color-soft: var(--soft);
+  --color-err-bg: var(--err-bg);
+  --color-err-ink: var(--err-ink);
+  --color-ok: var(--ok);
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* The small uppercase mono label used on buttons, nav links and eyebrows. */
+@utility label-mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }

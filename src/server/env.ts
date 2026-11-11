@@ -12,6 +12,10 @@ const schema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
+  /** Signs session JWTs. At least 32 characters; rotating it logs everyone out. */
+  SESSION_SECRET: z.string().min(32),
+  /** bcrypt cost factor. Tests lower it to keep hashing fast. */
+  BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
 });
 
 export type Env = z.infer<typeof schema>;

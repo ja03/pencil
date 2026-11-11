@@ -9,3 +9,19 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model User {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  /// Stored lowercased, so "Ahmad@x.com" and "ahmad@x.com" are one account.
+  email           String    @unique
+  username        String    @unique
+  /// Null for accounts that only sign in with Google.
+  passwordHash    String?
+  emailVerifiedAt DateTime?
+  /// Copied into every session JWT. Bumping it invalidates all existing sessions.
+  tokenVersion    Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("users")
+}
