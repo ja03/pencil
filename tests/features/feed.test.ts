@@ -106,6 +106,7 @@ describe("GET /api/posts (the public feed)", () => {
       publishedAt: "2026-03-01T09:00:00.000Z",
       editedAt: null,
       author: { id: author.user.id, username: author.user.username },
+      likeCount: 0,
     });
   });
 

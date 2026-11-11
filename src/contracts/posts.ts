@@ -110,6 +110,10 @@ export type Post = {
   createdAt: string;
   updatedAt: string;
   author: PostAuthor;
+  /** How many readers like the post. */
+  likeCount: number;
+  /** Whether the signed-in reader likes it; always false for visitors. */
+  likedByViewer: boolean;
 };
 
 /** Body of create, read, update and publish responses. */
@@ -130,6 +134,7 @@ export type PostSummary = Pick<
   | "tags"
   | "editedAt"
   | "author"
+  | "likeCount"
 > & { publishedAt: string };
 
 /**

@@ -13,6 +13,7 @@ import {
 import { normalizeTag, TAG_SUGGESTION_LIMIT, type TagSuggestionsResponse } from "@/contracts/tags";
 import { clock } from "@/server/clock";
 import { ApiError } from "@/server/http/errors";
+import { hasLiked } from "@/server/likes/repository";
 import { findUserByUsername } from "@/server/users/repository";
 import { encodeCursor, type FeedPosition } from "./cursor";
 import { excerptOf } from "./excerpt";
@@ -25,7 +26,7 @@ const NOT_FOUND = "That post doesn't exist.";
 
 const namesOf = (tags: { tag: { name: string } }[]) => tags.map((t) => t.tag.name);
 
-function toPost(row: posts.PostRow): Post {
+function toPost(row: posts.PostRow, likedByViewer: boolean): Post {
   const content = row.content as PostContent;
   return {
     id: row.id,
@@ -44,7 +45,14 @@ function toPost(row: posts.PostRow): Post {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     author: row.author,
+    likeCount: row._count.likes,
+    likedByViewer,
   };
+}
+
+/** The post as `viewer` sees it, including whether they like it. */
+async function present(viewer: CurrentUser | null, row: posts.PostRow): Promise<Post> {
+  return toPost(row, viewer ? await hasLiked(viewer.id, row.id) : false);
 }
 
 function toSummary(row: posts.PostSummaryRow): PostSummary {
@@ -59,6 +67,7 @@ function toSummary(row: posts.PostSummaryRow): PostSummary {
     publishedAt: row.publishedAt.toISOString(),
     editedAt: row.editedAt?.toISOString() ?? null,
     author: row.author,
+    likeCount: row._count.likes,
   };
 }
 
@@ -95,13 +104,13 @@ export async function createDraft(author: CurrentUser, input: CreatePostInput): 
     content: input.content,
     tags: input.tags,
   });
-  return toPost(row);
+  return toPost(row, false);
 }
 
 export async function getPost(viewer: CurrentUser | null, id: string): Promise<Post> {
   const row = visibleTo(viewer, await posts.findPostById(id));
   if (!row) throw new ApiError("NOT_FOUND", NOT_FOUND);
-  return toPost(row);
+  return present(viewer, row);
 }
 
 /** The post at `slug` if `viewer` may see it, otherwise null. For the post page. */
@@ -110,13 +119,13 @@ export async function findPostBySlug(
   slug: string,
 ): Promise<Post | null> {
   const row = visibleTo(viewer, await posts.findPostBySlug(slug));
-  return row && toPost(row);
+  return row && present(viewer, row);
 }
 
 /** The post when `user` wrote it, otherwise null. For the editor page. */
 export async function findOwnPost(user: CurrentUser, id: string): Promise<Post | null> {
   const row = await posts.findPostById(id);
-  return row && row.authorId === user.id ? toPost(row) : null;
+  return row && row.authorId === user.id ? present(user, row) : null;
 }
 
 /** JSON equality that ignores key order (Postgres jsonb reorders keys). */
@@ -165,7 +174,7 @@ export async function updatePost(
     tags: input.tags,
     ...(changed && row.publishedAt && { editedAt: clock.now() }),
   });
-  return toPost(updated);
+  return present(user, updated);
 }
 
 /**
@@ -175,8 +184,8 @@ export async function updatePost(
 export async function publishPost(user: CurrentUser, id: string): Promise<Post> {
   const row = await findOwnForChange(user, id, "publish");
   if (!user.emailVerified) throw new ApiError("FORBIDDEN", "Verify your email to publish.");
-  if (row.publishedAt) return toPost(row);
-  return toPost(await posts.publishPost(id, clock.now()));
+  if (row.publishedAt) return present(user, row);
+  return present(user, await posts.publishPost(id, clock.now()));
 }
 
 /**

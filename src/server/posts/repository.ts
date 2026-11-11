@@ -11,7 +11,10 @@ const tagNames = {
   tags: { select: { tag: { select: { name: true } } }, orderBy: { position: "asc" } },
 } as const;
 
-const withAuthorAndTags = { ...author, ...tagNames } as const;
+/** How many readers like the post, as `_count.likes`. */
+const likeCount = { _count: { select: { likes: true } } } as const;
+
+const withAuthorAndTags = { ...author, ...tagNames, ...likeCount } as const;
 
 export type PostRow = Prisma.PostGetPayload<{ include: typeof withAuthorAndTags }>;
 
