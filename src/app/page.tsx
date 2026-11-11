@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { FEED_GRID, FeedList } from "@/components/feed-list";
-import { PostCardSkeleton } from "@/components/post-card";
+import { EmptyState } from "@/components/empty-state";
+import { FeedList, FeedSkeleton } from "@/components/feed-list";
 import { listPublished } from "@/server/posts/service";
 
 const mono = "label-mono tracking-[0.1em]";
@@ -31,48 +31,16 @@ async function LatestPosts() {
   // Always fresh: read at request time, never prerendered.
   await connection();
   const first = await listPublished(null);
-  if (first.posts.length === 0) return <EmptyFeed />;
+  if (first.posts.length === 0) {
+    return (
+      <EmptyState
+        title="The page is still blank"
+        body="No one has published yet. Be the first name on the masthead."
+        action={{ href: "/write", label: "Write the first post" }}
+      />
+    );
+  }
   return <FeedList initial={first} />;
-}
-
-function FeedSkeleton() {
-  return (
-    <div aria-busy="true" aria-label="Loading posts" className={FEED_GRID}>
-      {[0, 1, 2].map((i) => (
-        <div key={i} className={i > 0 ? "hidden md:block" : undefined}>
-          <PostCardSkeleton />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function EmptyFeed() {
-  return (
-    <div className="flex flex-col gap-3.5 rounded-[22px] border border-line bg-surf p-7 sm:max-w-[420px]">
-      <div
-        aria-hidden="true"
-        className="flex h-[120px] items-center justify-center rounded-[14px] border border-dashed border-line bg-bg"
-      >
-        <svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="text-acc">
-          <rect x="14" y="12" width="36" height="48" rx="3" />
-          <path d="M22 24h20M22 32h20M22 40h12" />
-          <path d="M46 44 L60 30 L64 34 L50 48 Z" />
-          <path d="M50 48 L44 50 L46 44" />
-        </svg>
-      </div>
-      <h3 className="m-0 font-serif text-[26px] leading-[1.15] font-normal">The page is still blank</h3>
-      <p className="m-0 text-sm leading-[1.6] text-mut">
-        No one has published yet. Be the first name on the masthead.
-      </p>
-      <Link
-        href="/write"
-        className={`${mono} flex h-11 items-center self-start rounded-full bg-btn px-[18px] text-on-btn no-underline`}
-      >
-        Write the first post
-      </Link>
-    </div>
-  );
 }
 
 function Hero() {

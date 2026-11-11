@@ -1,6 +1,7 @@
 // Shared by the API and the client: post request and response shapes.
 import { z } from "zod";
 import { checkPostContent, type PostContent } from "./post-content";
+import { postTags } from "./tags";
 
 export type { PostContent } from "./post-content";
 
@@ -29,7 +30,12 @@ export const postContent = z.unknown().transform((value, ctx): PostContent => {
   return z.NEVER;
 });
 
-export const createPostInput = z.object({ title, description, content: postContent });
+export const createPostInput = z.object({
+  title,
+  description,
+  content: postContent,
+  tags: postTags.default([]),
+});
 export type CreatePostInput = z.infer<typeof createPostInput>;
 /** What the editor sends; the content is checked on the server. */
 export type CreatePostBody = z.input<typeof createPostInput>;
@@ -38,6 +44,8 @@ export const updatePostInput = z.object({
   title: title.optional(),
   description: description.optional(),
   content: postContent.optional(),
+  /** Replaces every tag on the post; leave it out to keep them. */
+  tags: postTags.optional(),
 });
 export type UpdatePostInput = z.infer<typeof updatePostInput>;
 export type UpdatePostBody = z.input<typeof updatePostInput>;
@@ -62,6 +70,8 @@ export type Post = {
   coverUrl: string | null;
   /** Estimated minutes to read, at least 1. */
   readingMinutes: number;
+  /** Normalized tag names, in the author's order. At most 5. */
+  tags: string[];
   status: PostStatus;
   /** Set the first time the post is published and never changed after. */
   publishedAt: string | null;
@@ -81,7 +91,15 @@ export const FEED_PAGE_SIZE = 10;
 /** A published post as a feed card shows it: no body, so pages stay small. */
 export type PostSummary = Pick<
   Post,
-  "id" | "slug" | "title" | "summary" | "coverUrl" | "readingMinutes" | "editedAt" | "author"
+  | "id"
+  | "slug"
+  | "title"
+  | "summary"
+  | "coverUrl"
+  | "readingMinutes"
+  | "tags"
+  | "editedAt"
+  | "author"
 > & { publishedAt: string };
 
 /**

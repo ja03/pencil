@@ -49,13 +49,20 @@ const list = (...items: string[]): BlockNode => ({
   content: items.map((item) => ({ type: "listItem", content: [p(item)] })),
 });
 
-type SeedPost = { author: Author; title: string; description?: string; body: BlockNode[] };
+type SeedPost = {
+  author: Author;
+  title: string;
+  description?: string;
+  tags: string[];
+  body: BlockNode[];
+};
 
 // Oldest first; each is published a day after the one before.
 const POSTS: SeedPost[] = [
   {
     author: "omar_h",
     title: "Notes on a slower internet",
+    tags: ["internet", "habits"],
     body: [
       p("For a month I opened the web only twice a day, once in the morning and once after dinner. Everything else waited."),
       p("The surprise was not how much I missed, but how little. The pages I cared about were still there in the evening, and most of the urgent ones had stopped mattering by then."),
@@ -65,6 +72,7 @@ const POSTS: SeedPost[] = [
   {
     author: "devnotes",
     title: "Editing is mostly deleting",
+    tags: ["writing", "editing"],
     description: "The best edit I ever made to a post was removing its first three paragraphs.",
     body: [
       p("Most drafts start before the idea does. The first few paragraphs are the writer warming up, and the reader can tell."),
@@ -76,6 +84,7 @@ const POSTS: SeedPost[] = [
   {
     author: "sara_m",
     title: "Why I keep a commonplace book",
+    tags: ["reading", "habits"],
     body: [
       p("A commonplace book is a notebook of other people's sentences: lines from books, things overheard, a recipe note, a phrase from a letter."),
       p("Copying a sentence by hand makes you read it at the speed it was written. You notice the commas."),
@@ -89,6 +98,7 @@ const POSTS: SeedPost[] = [
   {
     author: "lina_k",
     title: "The craft of the second sentence",
+    tags: ["writing", "craft"],
     description: "First sentences get all the attention. The second one decides whether anyone reads the third.",
     body: [
       p("A strong opening line makes a promise. The second sentence is where you start keeping it."),
@@ -98,6 +108,7 @@ const POSTS: SeedPost[] = [
   {
     author: "sara_m",
     title: "Margins are where thinking happens",
+    tags: ["reading", "thinking"],
     body: [
       p("The most useful part of any book I own is the margin. That is where the argument with the author lives."),
       p("Reading on paper with a pencil turns reading into a conversation. Reading on a screen, I mostly nod along."),
@@ -106,6 +117,7 @@ const POSTS: SeedPost[] = [
   {
     author: "omar_h",
     title: "Letters I never sent",
+    tags: ["writing"],
     description: "On writing for one reader, and why it makes the rest of your writing better.",
     body: [
       p("I keep a folder of letters I never sent. Most were written to people I couldn't say something to in person; a few were written to people who were no longer around to read them."),
@@ -116,6 +128,7 @@ const POSTS: SeedPost[] = [
   {
     author: "lina_k",
     title: "Gardens, compilers and patience",
+    tags: ["programming", "gardening"],
     description: "Two hobbies that reward the same thing: showing up and waiting for results.",
     body: [
       p("A garden and a large codebase have more in common than either community would admit. Both punish impatience and reward small, regular attention."),
@@ -127,6 +140,7 @@ const POSTS: SeedPost[] = [
   {
     author: "sara_m",
     title: "Learning to read slowly again",
+    tags: ["reading", "habits"],
     description: "Notes from a month of reading one essay a day, on paper, with a pencil in hand.",
     body: [
       p("I used to measure reading in books per year. This month I measured it in essays per day, and the number was one."),
@@ -137,6 +151,7 @@ const POSTS: SeedPost[] = [
   {
     author: "devnotes",
     title: "A small case for boring technology",
+    tags: ["programming", "software"],
     description: "Postgres, a single container and a cron job will carry you further than you think.",
     body: [
       p("Every new tool in a stack is a new way for it to fail at three in the morning. Boring technology has already failed in all the interesting ways, and someone wrote down the fix."),
@@ -152,6 +167,7 @@ const POSTS: SeedPost[] = [
   {
     author: "omar_h",
     title: "What old maps get right about uncertainty",
+    tags: ["maps", "design"],
     description: "Cartographers left blank spaces on purpose. Our dashboards could learn from them.",
     body: [
       p("Old maps were honest about the edges of what their makers knew. Coastlines trailed off into dotted lines; interiors were simply left blank."),
@@ -162,6 +178,7 @@ const POSTS: SeedPost[] = [
   {
     author: "lina_k",
     title: "On walking the same loop every morning",
+    tags: ["walking", "habits"],
     body: [
       p("I walk the same loop most mornings: down the hill, along the river, back past the bakery that is never open yet."),
       p("Because the route never changes, I stop looking at it. What is left is room to think, and most of my drafts start somewhere between the bridge and the bakery."),
@@ -170,6 +187,7 @@ const POSTS: SeedPost[] = [
   {
     author: "lina_k",
     title: "The quiet discipline of first drafts",
+    tags: ["writing", "craft", "habits"],
     description: "Why the worst version of an idea teaches you the most, and how to keep writing past it.",
     body: [
       p("Every first draft I have written was embarrassing. Not some of them. All of them. The surprise, after a few years, was that the embarrassment stopped being a reason to stop."),
@@ -204,6 +222,17 @@ async function seedAuthors(): Promise<Map<Author, string>> {
   return ids;
 }
 
+/** Join rows linking `postId` to `names`, creating any tag that is missing. */
+async function tagRows(names: string[], postId: string) {
+  await db().tag.createMany({ data: names.map((name) => ({ name })), skipDuplicates: true });
+  const rows = await db().tag.findMany({ where: { name: { in: names } } });
+  return names.map((name, position) => ({
+    postId,
+    tagId: rows.find((row) => row.name === name)!.id,
+    position,
+  }));
+}
+
 async function seedPosts(authorIds: Map<Author, string>) {
   const day = 24 * 60 * 60 * 1000;
   const start = Date.now() - POSTS.length * day;
@@ -213,8 +242,15 @@ async function seedPosts(authorIds: Map<Author, string>) {
     if (!checked.ok) throw new Error(`Seed post "${post.title}": ${checked.issue.message}`);
     const content = checked.content;
     const slug = slugify(post.title);
-    if (await db().post.findUnique({ where: { slug }, select: { id: true } })) continue;
-    await db().post.create({
+    const existing = await db().post.findUnique({ where: { slug }, select: { id: true } });
+    if (existing) {
+      // Posts seeded before tags existed get theirs; ones that have tags keep them.
+      if ((await db().postTag.count({ where: { postId: existing.id } })) === 0) {
+        await db().postTag.createMany({ data: await tagRows(post.tags, existing.id) });
+      }
+      continue;
+    }
+    const { id } = await db().post.create({
       data: {
         slug,
         authorId: authorIds.get(post.author)!,
@@ -225,7 +261,9 @@ async function seedPosts(authorIds: Map<Author, string>) {
         content,
         publishedAt: new Date(start + i * day),
       },
+      select: { id: true },
     });
+    await db().postTag.createMany({ data: await tagRows(post.tags, id) });
     created++;
   }
   console.log(`Seeded ${created} demo post(s).`);
