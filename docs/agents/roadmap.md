@@ -1,12 +1,12 @@
 # Pencil roadmap
 
-How agents work through the Pencil build. The spec is [#1](https://github.com/ja03/pencil/issues/1). The work is split into 20 tickets, issues [#2](https://github.com/ja03/pencil/issues/2)–[#21](https://github.com/ja03/pencil/issues/21), each a sub-issue of #1 labelled `ready-for-agent`, with GitHub's native "blocked by" links.
+How agents work through the Pencil build. The spec is [#1](https://github.com/ja03/pencil/issues/1). The work is split into 21 tickets, issues [#2](https://github.com/ja03/pencil/issues/2)–[#21](https://github.com/ja03/pencil/issues/21) plus [#28](https://github.com/ja03/pencil/issues/28) (a fix found while building #6), each a sub-issue of #1 labelled `ready-for-agent`, with GitHub's native "blocked by" links.
 
 The issues are the source of truth. This file explains the order and the reasons behind it. If an issue and this file disagree, follow the issue and fix this file.
 
 ## Picking the next issue
 
-Work the **frontier**: an open sub-issue of #1 with no open blockers and no assignee. When several are free, take the lowest number. The numbering is already a valid build order and follows the spec's build order, so a single agent can work #2 → #21 in order.
+Work the **frontier**: an open sub-issue of #1 with no open blockers and no assignee. When several are free, take the lowest number. The numbering follows the spec's build order, so a single agent can work #2 → #21 in order, with one exception: #28 was added later and must land before #15.
 
 ```bash
 gh api repos/ja03/pencil/issues/1/sub_issues --jq '.[] | select(.state=="open" and (.assignees|length)==0) | .number' \
@@ -73,6 +73,8 @@ flowchart LR
   I12 --> I13[#13 Edit/delete comments]
   I12 --> I19
   I14 --> I15[#15 Reset password]
+  I3 --> I28[#28 Stale-session login fix]
+  I28 --> I15
   I15 --> I19
   I20 --> I21[#21 AI embeddings]
 ```
@@ -87,7 +89,7 @@ A wave is a set of issues that can run in parallel once every earlier wave is me
 | --- | --- | --- |
 | 0 | #2 | Everything |
 | 1 | #3, #10 | Auth unlocks most of the remaining work. Deploy runs on its own track. |
-| 2 | #4, #5, #16, #17 | Drafts, rate limiting, Google sign-in, settings |
+| 2 | #4, #5, #16, #17, #28 | Drafts, rate limiting, Google sign-in, settings, the stale-session login fix |
 | 3 | #6, #8, #14 | The feed, uploads, the email pipeline |
 | 4 | #7, #9, #11, #12, #15 | Social features, tags, profile, password reset |
 | 5 | #13, #18, #19, #20 | Finishing work, E2E tests, recommendations |
@@ -119,7 +121,7 @@ These are the build phases from the spec, in order, matched to their issues.
 
 **[#3 Register, log in and log out](https://github.com/ja03/pencil/issues/3)**
 - **Blocked by:** #2.
-- **Unlocks:** #4, #5, #14, #16 and #17.
+- **Unlocks:** #4, #5, #14, #16, #17 and #28.
 - **Watch out:**
   - The current-user entry point that checks `tokenVersion` is what every protected handler uses. Build it once, here.
   - `makeStore()` must create a new store per request, never a global.
@@ -132,6 +134,14 @@ These are the build phases from the spec, in order, matched to their issues.
   - Build a reusable limiter that takes the clock as a dependency. Comment creation (#12) and resending verification (#14) reuse it.
   - The client IP comes from the rightmost `X-Forwarded-For` entry, read through one helper.
   - #10 checks this assumption in production.
+
+**[#28 Let stale sessions reach the login and register pages](https://github.com/ja03/pencil/issues/28)**
+- **Blocked by:** #3.
+- **Unlocks:** #15.
+- **Why it exists:** found while building #6. `src/proxy.ts` only checks a cookie's signature and expiry, so a stale cookie (deleted user, or bumped `tokenVersion`) still counts as signed in there. The proxy then redirects `/login` and `/register` to `/`, and the visitor can't log in again until they clear cookies.
+- **Watch out:**
+  - The proxy must stay free of database access.
+  - It must land before #15: a password reset makes every other session stale, and #15's session-expired screen sends people to `/login`.
 
 ### 3. Posts
 
@@ -217,7 +227,7 @@ These are the build phases from the spec, in order, matched to their issues.
   - Resend gives the same reply whether or not the account exists.
 
 **[#15 Forgot and reset password](https://github.com/ja03/pencil/issues/15)**
-- **Blocked by:** #14.
+- **Blocked by:** #14 and #28.
 - **Unlocks:** #19.
 - **Watch out:**
   - A reset bumps `tokenVersion`, so the old cookie must get 401 afterwards.
