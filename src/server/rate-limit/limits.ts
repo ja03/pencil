@@ -5,8 +5,7 @@ const MINUTE = 60_000;
 const TOO_MANY_LOGINS = "Too many login attempts. Please wait a moment and try again.";
 
 /**
- * Every rate limit in Pencil. Later tickets add theirs here (verification
- * resend) and call `rateLimiters().<name>.consume(key)`.
+ * Every rate limit in Pencil. Later tickets add theirs here and call `rateLimiters().<name>.consume(key)`.
  */
 export const RATE_LIMITS = {
   /** Keyed by client IP: stops one address guessing passwords. */
@@ -24,6 +23,21 @@ export const RATE_LIMITS = {
     limit: 5,
     windowMs: MINUTE,
     message: "You're commenting too fast. Please wait a moment and try again.",
+  },
+  /**
+   * Keyed by the email asked for, known or not, so the reply is the same
+   * either way: stops anyone filling one inbox with verification emails.
+   */
+  resendVerificationPerEmail: {
+    limit: 3,
+    windowMs: 60 * MINUTE,
+    message: "You can ask for 3 verification emails an hour. Please try again later.",
+  },
+  /** Keyed by client IP: stops one address sending verification emails to many inboxes. */
+  resendVerificationPerIp: {
+    limit: 10,
+    windowMs: 60 * MINUTE,
+    message: "Too many verification emails from your network. Please try again later.",
   },
 } satisfies Record<string, RateLimitRule>;
 

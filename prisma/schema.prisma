@@ -11,20 +11,21 @@ datasource db {
 }
 
 model User {
-  id              String    @id @default(uuid(7)) @db.Uuid
+  id              String       @id @default(uuid(7)) @db.Uuid
   /// Stored lowercased, so "Ahmad@x.com" and "ahmad@x.com" are one account.
-  email           String    @unique
-  username        String    @unique
+  email           String       @unique
+  username        String       @unique
   /// Null for accounts that only sign in with Google.
   passwordHash    String?
   emailVerifiedAt DateTime?
   /// Copied into every session JWT. Bumping it invalidates all existing sessions.
-  tokenVersion    Int       @default(0)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  tokenVersion    Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
   posts           Post[]
   likes           Like[]
   comments        Comment[]
+  emailTokens     EmailToken[]
 
   @@map("users")
 }
@@ -132,4 +133,28 @@ model Comment {
   /// A comment's replies, oldest first.
   @@index([parentId, createdAt, id])
   @@map("comments")
+}
+
+/// What an emailed token proves. #15 adds password reset.
+enum EmailTokenPurpose {
+  VERIFY_EMAIL
+}
+
+/// A single-use link emailed to a user. Only the SHA-256 of the token is
+/// stored, so a database leak can't be turned into working links.
+model EmailToken {
+  id        String            @id @default(uuid(7)) @db.Uuid
+  userId    String            @db.Uuid
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   EmailTokenPurpose
+  /// Hex SHA-256 of the token sent in the link.
+  tokenHash String            @unique
+  expiresAt DateTime
+  /// Null until the link is used; a used link is rejected.
+  usedAt    DateTime?
+  createdAt DateTime          @default(now())
+
+  /// Finding a user's outstanding links of one kind, to replace them.
+  @@index([userId, purpose])
+  @@map("email_tokens")
 }

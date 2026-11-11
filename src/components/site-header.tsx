@@ -7,6 +7,7 @@ import { useAppSelector } from "@/client/store";
 import { useLogOut } from "@/client/use-log-out";
 import { profilePath } from "@/contracts/users";
 import { Logo } from "./logo";
+import { VerifyBanner } from "./verify-banner";
 
 const pill =
   "label-mono flex h-11 items-center rounded-full px-[18px] no-underline transition-opacity hover:opacity-85";
@@ -21,70 +22,74 @@ export function SiteHeader() {
 
   // The auth screens and the editor have their own full-page layout.
   if (pathname === "/login" || pathname === "/register") return null;
+  if (pathname === "/verify" || pathname.startsWith("/verify/")) return null;
   if (pathname === "/write" || pathname.startsWith("/write/")) return null;
 
   return (
-    <header className="mx-auto flex w-full max-w-[1280px] items-center justify-between gap-4 px-4 py-3.5 sm:px-10 sm:py-5">
-      <Link href="/" className="text-ink no-underline" aria-label="Pencil home">
-        <Logo />
-      </Link>
+    <>
+      <VerifyBanner />
+      <header className="mx-auto flex w-full max-w-[1280px] items-center justify-between gap-4 px-4 py-3.5 sm:px-10 sm:py-5">
+        <Link href="/" className="text-ink no-underline" aria-label="Pencil home">
+          <Logo />
+        </Link>
 
-      {user && (
-        <nav aria-label="Main" className="hidden gap-1 rounded-full border border-line bg-surf p-1 md:flex">
-          <Link href="/" aria-current={pathname === "/" ? "page" : undefined} className={navLink}>
-            Feed
-          </Link>
-          <Link
-            href="/my-posts"
-            aria-current={pathname === "/my-posts" ? "page" : undefined}
-            className={navLink}
-          >
-            My posts
-          </Link>
-          <Link
-            href="/settings"
-            aria-current={pathname === "/settings" ? "page" : undefined}
-            className={navLink}
-          >
-            Settings
-          </Link>
-        </nav>
-      )}
-
-      <div className="flex items-center gap-2.5">
-        {user ? (
-          <>
-            <Link href="/write" className={`${pill} bg-btn text-on-btn`}>
-              Write
+        {user && (
+          <nav aria-label="Main" className="hidden gap-1 rounded-full border border-line bg-surf p-1 md:flex">
+            <Link href="/" aria-current={pathname === "/" ? "page" : undefined} className={navLink}>
+              Feed
             </Link>
             <Link
-              href={profilePath(user.username)}
-              title={`Your profile, @${user.username}`}
-              className="flex size-11 items-center justify-center rounded-full bg-acc font-serif text-lg text-bg no-underline"
+              href="/my-posts"
+              aria-current={pathname === "/my-posts" ? "page" : undefined}
+              className={navLink}
             >
-              <span aria-hidden="true">{user.username[0]?.toUpperCase()}</span>
-              <span className="sr-only">Your profile, @{user.username}</span>
+              My posts
             </Link>
-            <button
-              type="button"
-              onClick={logOut}
-              disabled={loggingOut}
-              className={`${pill} cursor-pointer border border-line bg-surf text-ink disabled:opacity-60`}
+            <Link
+              href="/settings"
+              aria-current={pathname === "/settings" ? "page" : undefined}
+              className={navLink}
             >
-              Log out
-            </button>
-          </>
-        ) : (
-          <>
-            <Link href="/login" className="label-mono hidden h-11 items-center px-3 text-ink no-underline sm:flex">
-              Log in
+              Settings
             </Link>
-            <Link href="/register" className={`${pill} bg-btn text-on-btn`}>
-              Sign up
-            </Link>
-          </>
+          </nav>
         )}
-      </div>
-    </header>
+
+        <div className="flex items-center gap-2.5">
+          {user ? (
+            <>
+              <Link href="/write" className={`${pill} bg-btn text-on-btn`}>
+                Write
+              </Link>
+              <Link
+                href={profilePath(user.username)}
+                title={`Your profile, @${user.username}`}
+                className="flex size-11 items-center justify-center rounded-full bg-acc font-serif text-lg text-bg no-underline"
+              >
+                <span aria-hidden="true">{user.username[0]?.toUpperCase()}</span>
+                <span className="sr-only">Your profile, @{user.username}</span>
+              </Link>
+              <button
+                type="button"
+                onClick={logOut}
+                disabled={loggingOut}
+                className={`${pill} cursor-pointer border border-line bg-surf text-ink disabled:opacity-60`}
+              >
+                Log out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="label-mono hidden h-11 items-center px-3 text-ink no-underline sm:flex">
+                Log in
+              </Link>
+              <Link href="/register" className={`${pill} bg-btn text-on-btn`}>
+                Sign up
+              </Link>
+            </>
+          )}
+        </div>
+      </header>
+    </>
   );
 }

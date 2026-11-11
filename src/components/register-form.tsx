@@ -37,7 +37,8 @@ export function RegisterForm() {
     try {
       const { user } = await register(parsed.data).unwrap();
       dispatch(signedIn(user));
-      router.replace("/");
+      // "Check your email": the verification link is on its way.
+      router.replace("/verify");
       router.refresh();
     } catch (error) {
       const apiError = apiErrorOf(error);
