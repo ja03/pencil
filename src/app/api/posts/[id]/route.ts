@@ -4,7 +4,7 @@ import { getCurrentUser, requireUser } from "@/server/auth/service";
 import { postIdParam } from "@/server/http/params";
 import { parseJson, route } from "@/server/http/route";
 import { serverPostInputs } from "@/server/posts/inputs";
-import { getPost, updatePost } from "@/server/posts/service";
+import { deletePost, getPost, updatePost } from "@/server/posts/service";
 
 type Context = RouteContext<"/api/posts/[id]">;
 
@@ -22,4 +22,15 @@ export const PATCH = route(async (request: NextRequest, context: Context) => {
   const input = await parseJson(request, serverPostInputs().updatePostInput);
   const body: PostResponse = { post: await updatePost(user, id, input) };
   return Response.json(body);
+});
+
+/**
+ * DELETE /api/posts/:id: delete your post, draft or published. It is gone
+ * everywhere at once (feed, profile, tag pages, its URL). 204 on success.
+ */
+export const DELETE = route(async (request: NextRequest, context: Context) => {
+  const user = await requireUser(request.cookies);
+  const id = await postIdParam(context.params);
+  await deletePost(user, id);
+  return new Response(null, { status: 204 });
 });

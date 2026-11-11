@@ -2,6 +2,7 @@ import Link from "next/link";
 import { shortDate } from "@/client/format";
 import type { PostSummary } from "@/contracts/posts";
 import { tagPath } from "@/contracts/tags";
+import { profilePath } from "@/contracts/users";
 import { PostCover } from "./post-cover";
 
 /** A feed card: cover, reading time, tags, title, summary, author and date. */
@@ -49,7 +50,10 @@ export function PostCard({ post }: { post: PostSummary }) {
             {post.author.username.charAt(0).toUpperCase()}
           </span>
           <span className="truncate">
-            <span className="text-ink">@{post.author.username}</span> ·{" "}
+            <Link href={profilePath(post.author.username)} className="text-ink no-underline hover:underline">
+              @{post.author.username}
+            </Link>{" "}
+            ·{" "}
             <time dateTime={post.publishedAt}>{shortDate(post.publishedAt)}</time>
             <span className="sr-only">, {post.readingMinutes} min read</span>
           </span>

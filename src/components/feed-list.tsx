@@ -21,14 +21,22 @@ export function FeedSkeleton() {
 }
 
 /**
- * A list of post cards: the feed, or a tag page when `tag` is set. The first
- * page arrives rendered from the server; later pages load through the API as
- * the reader nears the end of the list.
+ * A list of post cards: the feed, a tag page when `tag` is set, or an
+ * author's profile when `author` is. The first page arrives rendered from the
+ * server; later pages load through the API as the reader nears the end.
  */
-export function FeedList({ initial, tag }: { initial: FeedResponse; tag?: string }) {
+export function FeedList({
+  initial,
+  tag,
+  author,
+}: {
+  initial: FeedResponse;
+  tag?: string;
+  author?: string;
+}) {
   // Nothing is fetched until the reader scrolls near the end.
   const [started, setStarted] = useState(false);
-  const feed = useGetFeedInfiniteQuery({ after: initial.nextCursor ?? "", tag }, {
+  const feed = useGetFeedInfiniteQuery({ after: initial.nextCursor ?? "", tag, author }, {
     skip: !started || !initial.nextCursor,
     initialPageParam: initial.nextCursor ?? "",
   });

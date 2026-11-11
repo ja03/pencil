@@ -137,3 +137,12 @@ export type PostSummary = Pick<
  * `?cursor=` for the next page; null means there are no more.
  */
 export type FeedResponse = { posts: PostSummary[]; nextCursor: string | null };
+
+/** One of the signed-in author's posts as the My posts dashboard lists it. */
+export type MyPost = Pick<
+  Post,
+  "id" | "slug" | "title" | "coverUrl" | "status" | "publishedAt" | "updatedAt"
+>;
+
+/** Body of `GET /api/me/posts`: every draft and published post, latest change first. */
+export type MyPostsResponse = { posts: MyPost[] };

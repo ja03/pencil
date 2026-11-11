@@ -7,6 +7,10 @@ export function findUserById(id: string): Promise<User | null> {
   return db().user.findUnique({ where: { id } });
 }
 
+export function findUserByUsername(username: string): Promise<User | null> {
+  return db().user.findUnique({ where: { username } });
+}
+
 export function findUserByEmail(email: string): Promise<User | null> {
   return db().user.findUnique({ where: { email } });
 }
