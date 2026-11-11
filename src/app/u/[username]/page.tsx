@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
@@ -7,6 +8,7 @@ import { EmptyState } from "@/components/empty-state";
 import { FeedList, FeedSkeleton } from "@/components/feed-list";
 import { OwnProfileLink } from "@/components/own-profile-link";
 import { normalizeUsername, profilePath, type AuthorProfile } from "@/contracts/users";
+import { getCurrentUser } from "@/server/auth/service";
 import { listPublishedBy } from "@/server/posts/service";
 import { findProfile } from "@/server/users/service";
 
@@ -55,9 +57,10 @@ async function ProfileView({ params }: Pick<Props, "params">) {
   if (decoded(segment) !== username) permanentRedirect(profilePath(username));
   // Always fresh: read at request time, never prerendered.
   await connection();
+  const viewer = await getCurrentUser(await cookies());
   const [profile, first] = await Promise.all([
     findProfile(username),
-    listPublishedBy(username, null),
+    listPublishedBy(viewer, username, null),
   ]);
   if (!profile || !first) notFound();
 

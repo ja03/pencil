@@ -13,6 +13,7 @@ import {
 import { normalizeTag, TAG_SUGGESTION_LIMIT, type TagSuggestionsResponse } from "@/contracts/tags";
 import { clock } from "@/server/clock";
 import { ApiError } from "@/server/http/errors";
+import { hasLiked, likedAmong } from "@/server/likes/repository";
 import { findUserByUsername } from "@/server/users/repository";
 import { encodeCursor, type FeedPosition } from "./cursor";
 import { excerptOf } from "./excerpt";
@@ -25,7 +26,7 @@ const NOT_FOUND = "That post doesn't exist.";
 
 const namesOf = (tags: { tag: { name: string } }[]) => tags.map((t) => t.tag.name);
 
-function toPost(row: posts.PostRow): Post {
+function toPost(row: posts.PostRow, likedByViewer: boolean): Post {
   const content = row.content as PostContent;
   return {
     id: row.id,
@@ -44,10 +45,17 @@ function toPost(row: posts.PostRow): Post {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     author: row.author,
+    likeCount: row._count.likes,
+    likedByViewer,
   };
 }
 
-function toSummary(row: posts.PostSummaryRow): PostSummary {
+/** The post as `viewer` sees it, including whether they like it. */
+async function present(viewer: CurrentUser | null, row: posts.PostRow): Promise<Post> {
+  return toPost(row, viewer ? await hasLiked(viewer.id, row.id) : false);
+}
+
+function toSummary(row: posts.PostSummaryRow, likedByViewer: boolean): PostSummary {
   return {
     id: row.id,
     slug: row.slug,
@@ -59,6 +67,8 @@ function toSummary(row: posts.PostSummaryRow): PostSummary {
     publishedAt: row.publishedAt.toISOString(),
     editedAt: row.editedAt?.toISOString() ?? null,
     author: row.author,
+    likeCount: row._count.likes,
+    likedByViewer,
   };
 }
 
@@ -95,13 +105,13 @@ export async function createDraft(author: CurrentUser, input: CreatePostInput): 
     content: input.content,
     tags: input.tags,
   });
-  return toPost(row);
+  return toPost(row, false);
 }
 
 export async function getPost(viewer: CurrentUser | null, id: string): Promise<Post> {
   const row = visibleTo(viewer, await posts.findPostById(id));
   if (!row) throw new ApiError("NOT_FOUND", NOT_FOUND);
-  return toPost(row);
+  return present(viewer, row);
 }
 
 /** The post at `slug` if `viewer` may see it, otherwise null. For the post page. */
@@ -110,13 +120,13 @@ export async function findPostBySlug(
   slug: string,
 ): Promise<Post | null> {
   const row = visibleTo(viewer, await posts.findPostBySlug(slug));
-  return row && toPost(row);
+  return row && present(viewer, row);
 }
 
 /** The post when `user` wrote it, otherwise null. For the editor page. */
 export async function findOwnPost(user: CurrentUser, id: string): Promise<Post | null> {
   const row = await posts.findPostById(id);
-  return row && row.authorId === user.id ? toPost(row) : null;
+  return row && row.authorId === user.id ? present(user, row) : null;
 }
 
 /** JSON equality that ignores key order (Postgres jsonb reorders keys). */
@@ -165,7 +175,7 @@ export async function updatePost(
     tags: input.tags,
     ...(changed && row.publishedAt && { editedAt: clock.now() }),
   });
-  return toPost(updated);
+  return present(user, updated);
 }
 
 /**
@@ -175,8 +185,8 @@ export async function updatePost(
 export async function publishPost(user: CurrentUser, id: string): Promise<Post> {
   const row = await findOwnForChange(user, id, "publish");
   if (!user.emailVerified) throw new ApiError("FORBIDDEN", "Verify your email to publish.");
-  if (row.publishedAt) return toPost(row);
-  return toPost(await posts.publishPost(id, clock.now()));
+  if (row.publishedAt) return present(user, row);
+  return present(user, await posts.publishPost(id, clock.now()));
 }
 
 /**
@@ -211,19 +221,21 @@ export async function listOwnPosts(user: CurrentUser): Promise<MyPostsResponse> 
  * nobody has that (normalized) username.
  */
 export async function listPublishedBy(
+  viewer: CurrentUser | null,
   username: string,
   after: FeedPosition | null,
 ): Promise<FeedResponse | null> {
   const author = await findUserByUsername(username);
-  return author && listPublished(after, { authorId: author.id });
+  return author && listPublished(viewer, after, { authorId: author.id });
 }
 
 /**
  * One page of published posts, newest first, after `after` (null for the
  * first page), optionally only those with a tag or by an author. Readable
- * without an account.
+ * without an account; each card says whether `viewer` likes it.
  */
 export async function listPublished(
+  viewer: CurrentUser | null,
   after: FeedPosition | null,
   filter: posts.PostListFilter = {},
 ): Promise<FeedResponse> {
@@ -231,8 +243,9 @@ export async function listPublished(
   const rows = await posts.findPublishedPage(after, FEED_PAGE_SIZE + 1, filter);
   const page = rows.slice(0, FEED_PAGE_SIZE);
   const last = page.at(-1);
+  const liked = viewer ? await likedAmong(viewer.id, page.map((row) => row.id)) : new Set();
   return {
-    posts: page.map(toSummary),
+    posts: page.map((row) => toSummary(row, liked.has(row.id))),
     nextCursor: rows.length > FEED_PAGE_SIZE && last ? encodeCursor(last) : null,
   };
 }

@@ -11,7 +11,10 @@ const tagNames = {
   tags: { select: { tag: { select: { name: true } } }, orderBy: { position: "asc" } },
 } as const;
 
-const withAuthorAndTags = { ...author, ...tagNames } as const;
+/** How many readers like the post, as `_count.likes`. */
+const likeCount = { _count: { select: { likes: true } } } as const;
+
+const withAuthorAndTags = { ...author, ...tagNames, ...likeCount } as const;
 
 export type PostRow = Prisma.PostGetPayload<{ include: typeof withAuthorAndTags }>;
 
@@ -194,6 +197,11 @@ export async function findPublishedPage(
     select: summaryFields,
   });
   return rows as PostSummaryRow[];
+}
+
+/** Whether `id` is a published post that hasn't been deleted. Reads no post fields. */
+export async function isPublished(id: string): Promise<boolean> {
+  return (await db().post.count({ where: { id, ...PUBLISHED } })) > 0;
 }
 
 /** How many published, non-deleted posts carry `tag`. */

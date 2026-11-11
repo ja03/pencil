@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import type { FeedResponse } from "@/contracts/posts";
+import { getCurrentUser } from "@/server/auth/service";
 import { ApiError } from "@/server/http/errors";
 import { NO_SUCH_AUTHOR, usernameParam } from "@/server/http/params";
 import { route } from "@/server/http/route";
@@ -20,7 +21,11 @@ export const GET = route(async (request: NextRequest, context: Context) => {
   const { cursor } = pageQuery.parse({
     cursor: request.nextUrl.searchParams.get("cursor") ?? undefined,
   });
-  const body: FeedResponse | null = await listPublishedBy(username, cursor);
+  const body: FeedResponse | null = await listPublishedBy(
+    await getCurrentUser(request.cookies),
+    username,
+    cursor,
+  );
   if (!body) throw new ApiError("NOT_FOUND", NO_SUCH_AUTHOR);
   return Response.json(body);
 });

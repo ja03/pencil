@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { longDate } from "@/client/format";
+import { LikeButton } from "@/components/like-button";
 import { PostCover } from "@/components/post-cover";
 import type { Post } from "@/contracts/posts";
 import { tagPath } from "@/contracts/tags";
@@ -114,13 +115,21 @@ function PostArticle({ post, isAuthor }: { post: Post; isAuthor: boolean }) {
               </span>
             </span>
           </div>
-          {isAuthor && !draft && (
-            <Link
-              href={`/write/${post.id}`}
-              className="label-mono flex h-11 items-center rounded-full border border-line px-4 tracking-[0.1em] text-ink no-underline"
-            >
-              Edit post
-            </Link>
+          {!draft && (
+            <div className="flex items-center gap-2">
+              <LikeButton
+                postId={post.id}
+                initial={{ liked: post.likedByViewer, likeCount: post.likeCount }}
+              />
+              {isAuthor && (
+                <Link
+                  href={`/write/${post.id}`}
+                  className="label-mono flex h-11 items-center rounded-full border border-line px-4 tracking-[0.1em] text-ink no-underline"
+                >
+                  Edit post
+                </Link>
+              )}
+            </div>
           )}
         </div>
       </header>

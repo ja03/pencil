@@ -276,9 +276,38 @@ async function seedPosts(authorIds: Map<Author, string>) {
   console.log(`Seeded ${created} demo post(s).`);
 }
 
+/**
+ * A spread of likes between the demo authors, so like counts (and #20's
+ * most-liked fallback) have something to show. Each post gets 0 to 3 likes
+ * from the other authors, a few hours after it was published. Likes that
+ * already exist are left alone.
+ */
+async function seedLikes(authorIds: Map<Author, string>) {
+  const hour = 60 * 60 * 1000;
+  const posts = await db().post.findMany({
+    where: { slug: { in: POSTS.map((post) => slugify(post.title)) } },
+    select: { id: true, authorId: true, publishedAt: true },
+    orderBy: { publishedAt: "asc" },
+  });
+  const readers = [...authorIds.values()];
+  const data = posts.flatMap((post, i) => {
+    const others = readers.filter((id) => id !== post.authorId);
+    const published = (post.publishedAt ?? new Date()).getTime();
+    return others.slice(0, (i * 3 + 1) % 4).map((userId, n) => ({
+      userId,
+      postId: post.id,
+      createdAt: new Date(Math.min(Date.now(), published + (n + 1) * 3 * hour)),
+    }));
+  });
+  const { count } = await db().like.createMany({ data, skipDuplicates: true });
+  console.log(`Seeded ${count} demo like(s).`);
+}
+
 async function main() {
   await ensureBucket();
-  await seedPosts(await seedAuthors());
+  const authorIds = await seedAuthors();
+  await seedPosts(authorIds);
+  await seedLikes(authorIds);
   console.log(`Seed complete. Demo authors sign in with password "${DEMO_PASSWORD}".`);
 }
 

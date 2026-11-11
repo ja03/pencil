@@ -23,6 +23,7 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   posts           Post[]
+  likes           Like[]
 
   @@map("users")
 }
@@ -52,6 +53,7 @@ model Post {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   tags           PostTag[]
+  likes          Like[]
 
   @@index([authorId])
   /// The feed's keyset: newest published first, id breaks ties.
@@ -83,4 +85,19 @@ model PostTag {
   /// Tag pages find posts by tag.
   @@index([tagId])
   @@map("post_tags")
+}
+
+/// A reader liking a post. The primary key is what makes a second like from
+/// the same reader impossible, even under concurrent requests.
+model Like {
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String   @db.Uuid
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, postId])
+  /// Counting a post's likes.
+  @@index([postId])
+  @@map("likes")
 }

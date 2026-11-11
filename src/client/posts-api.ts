@@ -4,6 +4,7 @@ import type {
   PostResponse,
   UpdatePostBody,
 } from "@/contracts/posts";
+import type { LikeResponse } from "@/contracts/likes";
 import type { TagSuggestionsResponse } from "@/contracts/tags";
 import { api } from "./api";
 
@@ -43,6 +44,14 @@ export const postsApi = api.enhanceEndpoints({ addTagTypes: ["Post"] }).injectEn
       query: (id) => ({ url: `/posts/${id}`, method: "DELETE" }),
       invalidatesTags: (_result, _error, id) => [{ type: "Post", id }, LIST],
     }),
+    /** Likes a post for the signed-in reader. Idempotent. */
+    likePost: build.mutation<LikeResponse, string>({
+      query: (id) => ({ url: `/posts/${id}/like`, method: "PUT" }),
+    }),
+    /** Takes the signed-in reader's like back. Idempotent. */
+    unlikePost: build.mutation<LikeResponse, string>({
+      query: (id) => ({ url: `/posts/${id}/like`, method: "DELETE" }),
+    }),
     /** The feed, a tag page or a profile, after its server-rendered first page. */
     getFeed: build.infiniteQuery<FeedResponse, PostListArg, string>({
       infiniteQueryOptions: {
@@ -68,6 +77,8 @@ export const {
   useUpdatePostMutation,
   usePublishPostMutation,
   useDeletePostMutation,
+  useLikePostMutation,
+  useUnlikePostMutation,
   useGetFeedInfiniteQuery,
   useSearchTagsQuery,
 } = postsApi;

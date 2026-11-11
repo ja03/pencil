@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import type { FeedResponse, PostResponse } from "@/contracts/posts";
-import { requireUser } from "@/server/auth/service";
+import { getCurrentUser, requireUser } from "@/server/auth/service";
 import { parseJson, route } from "@/server/http/route";
 import { cursorParam } from "@/server/posts/cursor";
 import { serverPostInputs } from "@/server/posts/inputs";
@@ -11,12 +11,12 @@ const feedQuery = z.object({ cursor: cursorParam });
 
 /**
  * GET /api/posts?cursor=: the public feed. Published posts, newest first,
- * 10 a page. No account needed.
+ * 10 a page. No account needed; signed in, cards say which you like.
  */
 export const GET = route(async (request: NextRequest) => {
   const params = request.nextUrl.searchParams;
   const { cursor } = feedQuery.parse({ cursor: params.get("cursor") ?? undefined });
-  const body: FeedResponse = await listPublished(cursor);
+  const body: FeedResponse = await listPublished(await getCurrentUser(request.cookies), cursor);
   return Response.json(body);
 });
 
