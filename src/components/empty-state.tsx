@@ -18,7 +18,7 @@ export function EmptyState({
 }) {
   const Heading = level === 2 ? "h2" : "h3";
   return (
-    <div className="flex flex-col gap-3.5 rounded-[22px] border border-line bg-surf p-7 sm:max-w-[420px]">
+    <div className="motion-fade flex flex-col gap-3.5 rounded-[22px] border border-line bg-surf p-7 sm:max-w-[420px]">
       <div
         aria-hidden="true"
         className="flex h-[120px] items-center justify-center rounded-[14px] border border-dashed border-line bg-bg"

@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { FeedList, FeedSkeleton } from "@/components/feed-list";
+import { PageTransition } from "@/components/page-transition";
 import { RecommendedRow, RecommendedRowSkeleton } from "@/components/recommended-posts";
 import { getCurrentUser } from "@/server/auth/service";
 import { listPublished } from "@/server/posts/service";
@@ -17,23 +18,25 @@ const mono = "label-mono tracking-[0.1em]";
  */
 export default function FeedPage() {
   return (
-    <main className="mx-auto box-border flex w-full max-w-[1280px] flex-col gap-11 px-4 pt-2 pb-14 sm:gap-[72px] sm:px-10 sm:pt-3 sm:pb-24">
-      <Hero />
-      <Suspense fallback={<RecommendedRowSkeleton />}>
-        <Recommended />
-      </Suspense>
-      <section id="latest" aria-labelledby="latest-title" className="flex scroll-mt-6 flex-col gap-5">
-        <div className="flex items-center justify-between gap-3 border-t border-line pt-7">
-          <h2 id="latest-title" className="m-0 font-serif text-[30px] font-normal tracking-[-0.01em] sm:text-[40px]">
-            Latest
-          </h2>
-          <span className={`${mono} text-mut`}>Newest first</span>
-        </div>
-        <Suspense fallback={<FeedSkeleton />}>
-          <LatestPosts />
+    <PageTransition>
+      <main className="mx-auto box-border flex w-full max-w-[1280px] flex-col gap-11 px-4 pt-2 pb-14 sm:gap-[72px] sm:px-10 sm:pt-3 sm:pb-24">
+        <Hero />
+        <Suspense fallback={<RecommendedRowSkeleton />}>
+          <Recommended />
         </Suspense>
-      </section>
-    </main>
+        <section id="latest" aria-labelledby="latest-title" className="flex scroll-mt-6 flex-col gap-5">
+          <div className="flex items-center justify-between gap-3 border-t border-line pt-7">
+            <h2 id="latest-title" className="m-0 font-serif text-[30px] font-normal tracking-[-0.01em] sm:text-[40px]">
+              Latest
+            </h2>
+            <span className={`${mono} text-mut`}>Newest first</span>
+          </div>
+          <Suspense fallback={<FeedSkeleton />}>
+            <LatestPosts />
+          </Suspense>
+        </section>
+      </main>
+    </PageTransition>
   );
 }
 

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { parseTheme, THEME_COOKIE, type Theme } from "@/client/theme";
+import { PageTransition } from "@/components/page-transition";
 import type { CurrentUser } from "@/contracts/auth";
 import { profilePath } from "@/contracts/users";
 import { ResendVerificationButton } from "@/components/resend-verification-button";
@@ -21,14 +22,16 @@ type Props = PageProps<"/settings">;
  */
 export default function SettingsPage({ searchParams }: Props) {
   return (
-    <main className="mx-auto box-border flex w-full max-w-[1120px] flex-col gap-7 px-4 pt-5 pb-16 sm:px-10 sm:pt-10 sm:pb-24">
-      <h1 className="m-0 font-serif text-[40px] font-normal tracking-[-0.02em] sm:text-[56px]">
-        Settings
-      </h1>
-      <Suspense fallback={<SettingsSkeleton />}>
-        <SettingsView searchParams={searchParams} />
-      </Suspense>
-    </main>
+    <PageTransition>
+      <main className="mx-auto box-border flex w-full max-w-[1120px] flex-col gap-7 px-4 pt-5 pb-16 sm:px-10 sm:pt-10 sm:pb-24">
+        <h1 className="m-0 font-serif text-[40px] font-normal tracking-[-0.02em] sm:text-[56px]">
+          Settings
+        </h1>
+        <Suspense fallback={<SettingsSkeleton />}>
+          <SettingsView searchParams={searchParams} />
+        </Suspense>
+      </main>
+    </PageTransition>
   );
 }
 

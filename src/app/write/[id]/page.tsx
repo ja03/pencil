@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
+import { PageTransition } from "@/components/page-transition";
 import { EditorSkeleton, PostEditor } from "@/components/post-editor";
 import { requirePageUser } from "@/server/auth/page-guard";
 import { findOwnPost } from "@/server/posts/service";
@@ -15,9 +16,11 @@ export default function EditPostPage({ params }: PageProps<"/write/[id]">) {
   // The session and post load at request time, so they stream in behind a
   // boundary while the shell shows straight away.
   return (
-    <Suspense fallback={<EditorSkeleton />}>
-      <EditPost params={params} />
-    </Suspense>
+    <PageTransition>
+      <Suspense fallback={<EditorSkeleton />}>
+        <EditPost params={params} />
+      </Suspense>
+    </PageTransition>
   );
 }
 

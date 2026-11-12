@@ -70,7 +70,7 @@ export function SubmitButton({ children, pending }: { children: ReactNode; pendi
 
 export function FormAlert({ children }: { children: ReactNode }) {
   return (
-    <div role="alert" className="flex gap-2.5 rounded-xl bg-err-bg px-3.5 py-3 text-sm leading-normal text-err-ink">
+    <div role="alert" className="motion-fade flex gap-2.5 rounded-xl bg-err-bg px-3.5 py-3 text-sm leading-normal text-err-ink">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" className="mt-px flex-none">
         <circle cx="12" cy="12" r="9" />
         <path d="M12 8v5M12 16.5v.5" />

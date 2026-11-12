@@ -21,6 +21,9 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     trace: "retain-on-failure",
+    // Fades, page transitions and smooth scrolling are all off under reduced
+    // motion, so nothing moves while a journey clicks and asserts.
+    contextOptions: { reducedMotion: "reduce" },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {

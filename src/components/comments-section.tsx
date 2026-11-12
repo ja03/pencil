@@ -246,7 +246,7 @@ function ThreadItem({
 }) {
   const nested = "ml-6 border-l border-line pl-4 sm:ml-12";
   return (
-    <li className="flex flex-col gap-3.5 border-t border-line py-5">
+    <li className="motion-rise flex flex-col gap-3.5 border-t border-line py-5">
       {thread.deleted ? (
         <DeletedCommentView />
       ) : (
@@ -269,13 +269,13 @@ function ThreadItem({
           className="m-0 flex list-none flex-col gap-4 p-0"
         >
           {thread.replies.map((reply) => (
-            <li key={reply.id} className={nested}>
+            <li key={reply.id} className={`motion-rise ${nested}`}>
               <CommentView comment={reply} small {...permissions(reply)} {...changes} />
             </li>
           ))}
         </ul>
       )}
-      {replying && !thread.deleted && <div className={nested}>{replyForm}</div>}
+      {replying && !thread.deleted && <div className={`motion-fade ${nested}`}>{replyForm}</div>}
     </li>
   );
 }
@@ -349,7 +349,7 @@ function CommentView({
   }
 
   const actions = confirming ? (
-    <div role="group" aria-label="Delete this comment?" className="flex flex-wrap items-center gap-4">
+    <div role="group" aria-label="Delete this comment?" className="motion-fade flex flex-wrap items-center gap-4">
       <span className="text-[13px] text-ink">Delete this comment?</span>
       <button
         type="button"

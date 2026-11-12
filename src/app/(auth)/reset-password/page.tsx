@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { PageTransition } from "@/components/page-transition";
 import { ResetPasswordForm } from "@/components/reset-password-form";
 
 export const metadata: Metadata = {
@@ -12,8 +13,10 @@ export const metadata: Metadata = {
 export default function ResetPasswordPage() {
   // The token is in the query string, only known at request time.
   return (
-    <Suspense>
-      <ResetPasswordForm />
-    </Suspense>
+    <PageTransition>
+      <Suspense>
+        <ResetPasswordForm />
+      </Suspense>
+    </PageTransition>
   );
 }

@@ -41,6 +41,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${fontClasses} h-full antialiased`}
+      // Smooth scrolling is for in-page jumps; Next.js turns it off while it
+      // navigates, so a new page starts at the top at once.
+      data-scroll-behavior="smooth"
       // The head script adds data-theme before React hydrates.
       suppressHydrationWarning
     >
