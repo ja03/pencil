@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { LoginForm } from "@/components/login-form";
+import { GoogleSignIn } from "@/components/google-sign-in";
 import { SignedOutOnly } from "@/components/signed-out-only";
 
 export const metadata: Metadata = { title: "Log in · Pencil" };
@@ -10,7 +11,7 @@ export default function LoginPage() {
   return (
     <Suspense>
       <SignedOutOnly>
-        <LoginForm />
+        <LoginForm google={<GoogleSignIn context="signin" />} />
       </SignedOutOnly>
     </Suspense>
   );

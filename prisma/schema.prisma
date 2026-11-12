@@ -17,6 +17,9 @@ model User {
   username        String       @unique
   /// Null for accounts that only sign in with Google.
   passwordHash    String?
+  /// Google's stable account id (the ID token's `sub`), once the user has
+  /// signed in with Google. Null for password-only accounts.
+  googleId        String?      @unique
   emailVerifiedAt DateTime?
   /// Copied into every session JWT. Bumping it invalidates all existing sessions.
   tokenVersion    Int          @default(0)

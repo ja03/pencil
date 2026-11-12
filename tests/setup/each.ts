@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeEach } from "vitest";
 import { backgroundTasksSettled } from "@/server/background";
+import { setGoogleVerifier } from "@/server/auth/google";
 import { setClock } from "@/server/clock";
 import { db } from "@/server/db";
 import { setEmbeddingProvider } from "@/server/embeddings/provider";
@@ -16,6 +17,7 @@ afterEach(async () => {
   await backgroundTasksSettled();
   setClock();
   setEmbeddingProvider();
+  setGoogleVerifier();
 });
 
 afterAll(async () => {

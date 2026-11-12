@@ -42,6 +42,11 @@ const schema = z.object({
    * recommendations fall back to tag overlap.
    */
   GEMINI_API_KEY: z.string().optional().transform((v) => v || undefined),
+  /**
+   * OAuth client id for "Continue with Google". Unset (or blank) means Google
+   * sign-in is off: the button is hidden and its endpoint answers 404.
+   */
+  GOOGLE_CLIENT_ID: z.string().optional().transform((v) => v || undefined),
 });
 
 export type Env = z.infer<typeof schema>;

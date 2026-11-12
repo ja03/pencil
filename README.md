@@ -23,6 +23,10 @@ npm run db:seed   # creates the bucket and lets browsers read uploaded images
 npm run dev
 ```
 
+## Google sign-in
+
+"Continue with Google" appears on the login and register pages only when `GOOGLE_CLIENT_ID` is set on the server, so it is off locally and in tests. In Google Cloud, create an OAuth client of type "Web application" and add the site's address (for example `https://pencil.onrender.com`) as an authorized JavaScript origin; no redirect URI or client secret is needed. The browser gets an ID token from Google and `POST /api/auth/google` verifies it against Google's keys.
+
 ## AI recommendations
 
 "Recommended for you" and "More like this" pick posts by meaning when `GEMINI_API_KEY` is set in `.env` (or on the server). Each post is embedded with Gemini `gemini-embedding-001` after it is published, and again when its title, description or tags change. Without a key, recommendations use tag overlap.

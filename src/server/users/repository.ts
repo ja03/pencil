@@ -15,6 +15,52 @@ export function findUserByEmail(email: string): Promise<User | null> {
   return db().user.findUnique({ where: { email } });
 }
 
+export function findUserByGoogleId(googleId: string): Promise<User | null> {
+  return db().user.findUnique({ where: { googleId } });
+}
+
+/** Which of `usernames` already belong to an account. */
+export async function findTakenUsernames(usernames: string[]): Promise<Set<string>> {
+  const rows = await db().user.findMany({
+    where: { username: { in: usernames } },
+    select: { username: true },
+  });
+  return new Set(rows.map((r) => r.username));
+}
+
+/** Lets a verified account also sign in with the Google account `googleId`. */
+export function linkGoogleAccount(id: string, googleId: string): Promise<User> {
+  return db().user.update({ where: { id }, data: { googleId } });
+}
+
+/**
+ * Hands an unverified account to the Google user who proved they own its
+ * email: links Google, removes the password whoever registered it chose,
+ * marks the email verified and bumps `tokenVersion` in one transaction,
+ * so every session the squatter had stops working the moment the password
+ * does. The `emailVerifiedAt: null` guard means an account verified in the
+ * meantime is never taken over; that returns null.
+ */
+export async function takeOverUnverifiedAccount(
+  id: string,
+  googleId: string,
+  at: Date,
+): Promise<User | null> {
+  const [{ count }, user] = await db().$transaction([
+    db().user.updateMany({
+      where: { id, emailVerifiedAt: null },
+      data: {
+        googleId,
+        passwordHash: null,
+        emailVerifiedAt: at,
+        tokenVersion: { increment: 1 },
+      },
+    }),
+    db().user.findUnique({ where: { id } }),
+  ]);
+  return count === 1 ? user : null;
+}
+
 /** Records that the user proved they own their email. A user verified earlier keeps the first date. */
 export async function markEmailVerified(id: string, at: Date): Promise<void> {
   await db().user.updateMany({ where: { id, emailVerifiedAt: null }, data: { emailVerifiedAt: at } });
@@ -65,7 +111,10 @@ export type CreateUserResult =
 export async function createUser(data: {
   email: string;
   username: string;
-  passwordHash: string;
+  /** Null for an account that only signs in with Google. */
+  passwordHash: string | null;
+  googleId?: string;
+  emailVerifiedAt?: Date;
 }): Promise<CreateUserResult> {
   try {
     return { ok: true, user: await db().user.create({ data }) };

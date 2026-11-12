@@ -4,6 +4,7 @@ import type {
   AuthResponse,
   ForgotPasswordInput,
   ForgotPasswordResponse,
+  GoogleSignInInput,
   LoginInput,
   RegisterInput,
   ResetPasswordInput,
@@ -23,6 +24,9 @@ export const api = createApi({
     }),
     login: build.mutation<AuthResponse, LoginInput>({
       query: (body) => ({ url: "/auth/login", method: "POST", body }),
+    }),
+    googleSignIn: build.mutation<AuthResponse, GoogleSignInInput>({
+      query: (body) => ({ url: "/auth/google", method: "POST", body }),
     }),
     logout: build.mutation<void, void>({
       query: () => ({ url: "/auth/logout", method: "POST" }),
@@ -45,6 +49,7 @@ export const api = createApi({
 export const {
   useRegisterMutation,
   useLoginMutation,
+  useGoogleSignInMutation,
   useLogoutMutation,
   useVerifyEmailMutation,
   useResendVerificationMutation,
