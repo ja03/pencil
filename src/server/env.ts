@@ -61,3 +61,11 @@ export function env(): Env {
   parsed ??= schema.parse(process.env);
   return parsed;
 }
+
+/**
+ * The app's public address alone, for pages that only build links (such as
+ * link previews) and so shouldn't need the database or storage settings.
+ */
+export function appUrl(): string {
+  return schema.shape.APP_URL.parse(process.env.APP_URL);
+}

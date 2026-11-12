@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/empty-state";
 import { FeedList, FeedSkeleton } from "@/components/feed-list";
 import { normalizeTag, tagPath } from "@/contracts/tags";
 import { getCurrentUser } from "@/server/auth/service";
+import { linkPreview } from "@/server/link-preview";
 import { countTagged, listPublished } from "@/server/posts/service";
 
 type Props = PageProps<"/tags/[tag]">;
@@ -27,13 +28,18 @@ function tagOf(segment: string): string | null {
   return normalizeTag(decoded(segment));
 }
 
+/** Title and summary for the tab and link previews. */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tag = tagOf((await params).tag);
   if (!tag) return { title: "Pencil" };
-  return {
-    title: `#${tag} · Pencil`,
-    description: `Posts tagged ${tag} on Pencil, newest first.`,
-  };
+  const count = await countTagged(tag);
+  const posts = count > 0 ? `${count} ${count === 1 ? "post" : "posts"}` : "Posts";
+  return linkPreview({
+    title: `#${tag}`,
+    previewTitle: `#${tag} on Pencil`,
+    description: `${posts} tagged ${tag} on Pencil, newest first.`,
+    path: tagPath(tag),
+  });
 }
 
 /**

@@ -15,17 +15,28 @@ import type { Post } from "@/contracts/posts";
 import { tagPath } from "@/contracts/tags";
 import { profilePath } from "@/contracts/users";
 import { getCurrentUser } from "@/server/auth/service";
+import { linkPreview } from "@/server/link-preview";
 import { listComments } from "@/server/comments/service";
 import { findPostBySlug } from "@/server/posts/service";
 import { similarTo } from "@/server/recommendations/service";
 
 type Props = PageProps<"/posts/[slug]">;
 
-/** Title and summary for the tab and link previews. Published posts only. */
+/**
+ * Title, summary and cover for the tab and link previews. Read as a visitor,
+ * so drafts, deleted posts and unknown slugs reveal nothing.
+ */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = await findPostBySlug(null, (await params).slug);
-  if (!post) return { title: "Pencil" };
-  return { title: `${post.title} · Pencil`, description: post.summary };
+  if (!post?.publishedAt) return { title: "Pencil" };
+  return linkPreview({
+    title: post.title,
+    description: post.summary,
+    path: `/posts/${post.slug}`,
+    image: post.coverUrl,
+    type: "article",
+    extra: { publishedTime: post.publishedAt, tags: post.tags },
+  });
 }
 
 /**
@@ -213,11 +224,17 @@ function PostSkeleton() {
       className="flex flex-col items-center gap-9 px-4 pt-6 sm:gap-14 sm:px-10 sm:pt-12"
     >
       <div className="flex w-full max-w-[760px] flex-col gap-[22px]">
-        <span className={`${bar} h-14 w-4/5`} />
+        <span className={`${bar} h-8 w-40 rounded-full`} />
+        <span className={`${bar} h-14 w-4/5 sm:h-[128px]`} />
         <span className={`${bar} h-7 w-3/5`} />
         <span className={`${bar} h-[78px] w-full`} />
       </div>
-      <span className={`${bar} aspect-[4/3] w-full max-w-[1080px] rounded-3xl sm:aspect-[21/9]`} />
+      <span className={`${bar} aspect-[4/3] w-full max-w-[1080px] rounded-2xl sm:aspect-[21/9] sm:rounded-3xl`} />
+      <div className="flex w-full max-w-[680px] flex-col gap-3.5">
+        {["w-full", "w-full", "w-11/12", "w-full", "w-2/3"].map((width, i) => (
+          <span key={i} className={`${bar} h-5 ${width}`} />
+        ))}
+      </div>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { FeedList, FeedSkeleton } from "@/components/feed-list";
 import { OwnProfileLink } from "@/components/own-profile-link";
 import { normalizeUsername, profilePath, type AuthorProfile } from "@/contracts/users";
 import { getCurrentUser } from "@/server/auth/service";
+import { linkPreview } from "@/server/link-preview";
 import { listPublishedBy } from "@/server/posts/service";
 import { findProfile } from "@/server/users/service";
 
@@ -25,13 +26,20 @@ function decoded(segment: string): string {
   }
 }
 
+/** Title and summary for the tab and link previews; unknown authors get none. */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const username = normalizeUsername(decoded((await params).username));
-  if (!username) return { title: "Pencil" };
-  return {
-    title: `@${username} · Pencil`,
-    description: `Posts by @${username} on Pencil, newest first.`,
-  };
+  const profile = username && (await findProfile(username));
+  if (!profile) return { title: "Pencil" };
+  const count = profile.publishedCount;
+  return linkPreview({
+    title: `@${profile.username}`,
+    previewTitle: `@${profile.username} on Pencil`,
+    description: `${count} ${count === 1 ? "post" : "posts"} by @${profile.username} on Pencil, newest first.`,
+    path: profilePath(profile.username),
+    type: "profile",
+    extra: { username: profile.username },
+  });
 }
 
 /**
@@ -76,8 +84,9 @@ async function ProfileView({ params }: Pick<Props, "params">) {
         </div>
         {first.posts.length === 0 ? (
           <EmptyState
-            title="Nothing published yet"
-            body={`When @${profile.username} publishes a post, it will show up here.`}
+            title={`@${profile.username} hasn’t published yet`}
+            body="When they do, their posts will appear here, newest first."
+            action={{ href: "/", label: "Back to the feed" }}
           />
         ) : (
           <FeedList initial={first} author={profile.username} />
@@ -133,7 +142,7 @@ function ProfileSkeleton() {
           <span className="h-11 w-3/5 max-w-[360px] rounded-lg bg-soft sm:h-[72px]" />
           <span className="h-4 w-2/5 max-w-[280px] rounded bg-soft" />
         </div>
-        <span className="hidden size-[180px] rounded-full bg-soft sm:block" />
+        <span className="order-first size-24 justify-self-start rounded-full bg-soft sm:order-none sm:size-[180px] sm:justify-self-end" />
       </div>
       <FeedSkeleton />
     </>
