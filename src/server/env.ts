@@ -37,6 +37,11 @@ const schema = z.object({
   SMTP_USER: z.string().optional().transform((v) => v || undefined),
   SMTP_PASS: z.string().optional().transform((v) => v || undefined),
   MAIL_FROM: z.string().min(1).default("Pencil <no-reply@pencil.local>"),
+  /**
+   * Gemini API key for recommendations by meaning. Unset (or blank) means
+   * recommendations fall back to tag overlap.
+   */
+  GEMINI_API_KEY: z.string().optional().transform((v) => v || undefined),
 });
 
 export type Env = z.infer<typeof schema>;

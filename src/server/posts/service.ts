@@ -255,6 +255,17 @@ export async function listPublished(
   };
 }
 
+/**
+ * Cards for the published posts among `ids`, in the order given, as `viewer`
+ * sees them. Ids of drafts, deleted or unknown posts are dropped.
+ */
+export async function summariesOf(viewer: CurrentUser | null, ids: string[]): Promise<PostSummary[]> {
+  const rows = new Map((await posts.findPublishedSummaries(ids)).map((row) => [row.id, row]));
+  const ordered = ids.flatMap((id) => rows.get(id) ?? []);
+  const liked = viewer ? await likedAmong(viewer.id, ordered.map((row) => row.id)) : new Set();
+  return ordered.map((row) => toSummary(row, liked.has(row.id)));
+}
+
 /** How many published posts a tag page lists in all. */
 export function countTagged(tag: string): Promise<number> {
   return posts.countPublishedWithTag(tag);

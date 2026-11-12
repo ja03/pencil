@@ -4,16 +4,24 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { FeedList, FeedSkeleton } from "@/components/feed-list";
+import { RecommendedRow, RecommendedRowSkeleton } from "@/components/recommended-posts";
 import { getCurrentUser } from "@/server/auth/service";
 import { listPublished } from "@/server/posts/service";
+import { recommendFor } from "@/server/recommendations/service";
 
 const mono = "label-mono tracking-[0.1em]";
 
-/** The public feed: everything published, newest first. No account needed. */
+/**
+ * The public feed: "Recommended for you" (or the month's popular posts), then
+ * everything published, newest first. No account needed.
+ */
 export default function FeedPage() {
   return (
     <main className="mx-auto box-border flex w-full max-w-[1280px] flex-col gap-11 px-4 pt-2 pb-14 sm:gap-[72px] sm:px-10 sm:pt-3 sm:pb-24">
       <Hero />
+      <Suspense fallback={<RecommendedRowSkeleton />}>
+        <Recommended />
+      </Suspense>
       <section id="latest" aria-labelledby="latest-title" className="flex scroll-mt-6 flex-col gap-5">
         <div className="flex items-center justify-between gap-3 border-t border-line pt-7">
           <h2 id="latest-title" className="m-0 font-serif text-[30px] font-normal tracking-[-0.01em] sm:text-[40px]">
@@ -43,6 +51,12 @@ async function LatestPosts() {
     );
   }
   return <FeedList initial={first} />;
+}
+
+async function Recommended() {
+  await connection();
+  const viewer = await getCurrentUser(await cookies());
+  return <RecommendedRow result={await recommendFor(viewer)} signedIn={viewer !== null} />;
 }
 
 function Hero() {
