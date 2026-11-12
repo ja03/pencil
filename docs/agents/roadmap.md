@@ -191,6 +191,7 @@ These are the build phases from the spec, in order, matched to their issues.
 - **Watch out:**
   - Log `X-Forwarded-For` once in production to confirm the assumption #4 relies on.
   - The free Render tier sleeps when idle.
+  - #19 landed first and added the E2E tests as the last steps of CI's `check` job. The deploy must wait for that job (`needs: check`, or Render's "after CI checks pass"), so a failing E2E test blocks it.
 
 ### 6. Social
 
@@ -269,6 +270,7 @@ These are the build phases from the spec, in order, matched to their issues.
 - **Unlocks:** nothing.
 - **Scope:** two Playwright journeys, kept short. The verification link is read from Mailpit's API.
 - **Watch out:** once this ticket lands, E2E tests gate the deploy in CI.
+- **Landed note:** the journeys live in `e2e/` and run with `npm run test:e2e`. Playwright builds the app and serves it on port 3100 against the feature tests' database, bucket and Mailpit. Each run signs up fresh users instead of wiping data. Logins are rate-limited to 5 per minute per IP, and the limit is kept in the server's memory, so keep logins in a journey to a minimum.
 
 ### 11. AI recommendations (last, can be dropped)
 
