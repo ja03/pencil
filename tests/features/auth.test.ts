@@ -51,6 +51,8 @@ describe("POST /api/auth/register", () => {
         username: "ada_writes",
         email: "ada@example.com",
         emailVerified: false,
+        hasPassword: true,
+        googleLinked: false,
       },
     });
     expect(JSON.stringify(res.body)).not.toContain(newAccount.password);
@@ -174,6 +176,8 @@ describe("POST /api/auth/login", () => {
       username: user.username,
       email: "ada@example.com",
       emailVerified: false,
+      hasPassword: true,
+      googleLinked: false,
     });
     const cookie = sessionCookie(res);
     expect(cookie?.attrs).toEqual(
@@ -252,6 +256,23 @@ describe("GET /api/auth/me (the current-user check every protected handler uses)
 
     expect(res.status).toBe(200);
     expect(res.body.user).toMatchObject({ id: user.id, emailVerified: true });
+  });
+
+  it("says a password account signs in with a password and not Google, without exposing the hash", async () => {
+    const { user, cookie } = await signedIn();
+
+    const res = await meWith(cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.user).toEqual({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      emailVerified: false,
+      hasPassword: true,
+      googleLinked: false,
+    });
+    expect(JSON.stringify(res.body)).not.toContain(user.passwordHash!);
   });
 
   it("returns 401 without a session cookie", async () => {

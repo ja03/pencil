@@ -91,6 +91,10 @@ export type CurrentUser = {
   username: string;
   email: string;
   emailVerified: boolean;
+  /** The account has a password, so it can sign in with email and password. */
+  hasPassword: boolean;
+  /** A Google account is linked, so it can sign in with Google. */
+  googleLinked: boolean;
 };
 
 /** Body of register, login and current-user responses. */
