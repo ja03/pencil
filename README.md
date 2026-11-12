@@ -48,4 +48,11 @@ docker compose up -d postgres minio mailpit
 npm test
 ```
 
-CI runs `npm audit`, lint, typecheck and the tests with coverage on every push and pull request.
+End-to-end tests drive the two core journeys in Chromium with Playwright: register, verify the email, publish, like and comment; and forgot password, reset, log in. They build the app, serve it on port 3100 against the same test database, bucket and Mailpit, and read the emailed links from Mailpit's API.
+
+```bash
+npx playwright install chromium   # once
+npm run test:e2e
+```
+
+CI runs `npm audit`, lint, typecheck, the tests with coverage and then the E2E tests on every push and pull request. Any failing step fails the job, and the deploy waits for it.

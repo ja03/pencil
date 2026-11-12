@@ -11,10 +11,11 @@ concurrency:
 
 jobs:
   # Steps run in order and stop at the first failure:
-  # audit → lint → typecheck → unit and feature tests with coverage.
+  # audit → lint → typecheck → unit and feature tests with coverage → E2E.
+  # The deploy must wait for this job, so a failing E2E test blocks it.
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     services:
       postgres:
@@ -31,7 +32,7 @@ jobs:
           --health-timeout 5s
           --health-retries 30
 
-      # Feature tests read the emails the app sends from Mailpit's API.
+      # Feature and E2E tests read the emails the app sends from Mailpit's API.
       mailpit:
         image: axllent/mailpit:v1.27
         ports:
@@ -80,4 +81,22 @@ jobs:
         with:
           name: coverage
           path: coverage/
+          if-no-files-found: ignore
+
+      - name: Install Playwright's Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Builds the app, serves it on port 3100 against the same services, and
+      # runs the core journeys in Chromium.
+      - name: E2E tests
+        run: npm run test:e2e
+
+      - name: Upload E2E report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
           if-no-files-found: ignore

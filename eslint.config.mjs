@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // Generated and tool output:
     "src/generated/**",
     "coverage/**",
+    "test-results/**",
+    "playwright-report/**",
   ]),
 ]);
 
