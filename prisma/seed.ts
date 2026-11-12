@@ -18,7 +18,13 @@ const DEMO_PASSWORD = "pencil-demo";
 async function ensureBucket() {
   await createBucket();
   const Bucket = env().S3_BUCKET;
-  await s3().send(new PutBucketPolicyCommand({ Bucket, Policy: publicReadPolicy(Bucket) }));
+  try {
+    await s3().send(new PutBucketPolicyCommand({ Bucket, Policy: publicReadPolicy(Bucket) }));
+  } catch (error) {
+    // R2 has no bucket policies: public access is a bucket setting there
+    // (docs/deploy.md). MinIO, locally and in CI, takes the policy.
+    console.warn(`Couldn't set a public-read policy on ${Bucket}: ${(error as Error).message}`);
+  }
 }
 
 async function createBucket() {

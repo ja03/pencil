@@ -56,3 +56,7 @@ npm run test:e2e
 ```
 
 CI runs `npm audit`, lint, typecheck, the tests with coverage and then the E2E tests on every push and pull request. Any failing step fails the job, and the deploy waits for it.
+
+## Deploy
+
+Production runs on Render as one container built from the `Dockerfile`, with Neon (Postgres), Cloudflare R2 (images) and Mailtrap (email) set by environment variables. On a push to `main`, CI's `deploy` job runs only after every check passes, and it triggers the Render deploy for that commit. The container applies migrations before it starts serving. Setup steps and the full variable list are in [docs/deploy.md](docs/deploy.md); the service itself is described by [render.yaml](render.yaml).

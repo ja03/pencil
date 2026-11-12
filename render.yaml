@@ -1,0 +1,63 @@
+# Render Blueprint: one web service, built from the repo's Dockerfile. The
+# container runs `prisma migrate deploy` and then `next start` (see Dockerfile).
+#
+# Render never deploys on its own (autoDeployTrigger: off). The `deploy` job in
+# .github/workflows/ci.yml calls the service's deploy hook once every CI step
+# has passed on main. Setup steps are in docs/deploy.md.
+services:
+  - type: web
+    name: pencil
+    runtime: docker
+    plan: free
+    # Keep Neon's project in the matching AWS region (eu-central-1).
+    region: frankfurt
+    branch: main
+    autoDeployTrigger: "off"
+    # Checks the database and the bucket; a new deploy only takes traffic once it passes.
+    healthCheckPath: /api/health
+    envVars:
+      # Neon: the pooled connection string (host has `-pooler`) for the app,
+      # the direct one for migrations.
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+
+      # Cloudflare R2, through its S3-compatible API.
+      - key: S3_ENDPOINT # https://<account id>.r2.cloudflarestorage.com
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_PUBLIC_URL # the bucket's r2.dev URL or custom domain
+        sync: false
+
+      - key: SESSION_SECRET
+        generateValue: true
+      # The service's own address, e.g. https://pencil.onrender.com
+      - key: APP_URL
+        sync: false
+
+      # Mailtrap SMTP. Free Render services can't reach ports 25, 465 or 587,
+      # so this uses Mailtrap's alternative port, 2525 (STARTTLS).
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "2525"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+
+      # Optional: blank turns the feature off.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false

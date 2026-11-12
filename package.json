@@ -15,7 +15,8 @@
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
-    "embeddings:backfill": "tsx scripts/backfill-embeddings.ts"
+    "embeddings:backfill": "tsx scripts/backfill-embeddings.ts",
+    "storage:lifecycle": "tsx scripts/storage-lifecycle.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1166.0",

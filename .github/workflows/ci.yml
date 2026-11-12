@@ -100,3 +100,25 @@ jobs:
             playwright-report/
             test-results/
           if-no-files-found: ignore
+
+  # Deploys the commit that just passed `check` to Render. Only pushes to main
+  # get here, and only after every step of `check` (E2E included) is green.
+  deploy:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+
+    steps:
+      - name: Trigger the Render deploy
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::warning::RENDER_DEPLOY_HOOK_URL isn't set, so nothing was deployed. See docs/deploy.md."
+            exit 0
+          fi
+          # `ref` pins the deploy to this commit, not whatever main is by now.
+          curl --fail-with-body --silent --show-error --request POST \
+            "${RENDER_DEPLOY_HOOK_URL}&ref=${GITHUB_SHA}"
