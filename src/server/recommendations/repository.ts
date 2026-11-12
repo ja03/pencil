@@ -1,5 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/server/db";
+import { vectorSql } from "@/server/embeddings/repository";
 
 /** Who the list is for and which posts it must leave out. */
 export type Audience = {
@@ -84,5 +85,18 @@ export function findPopularSince(since: Date, audience: Audience, take: number) 
     FROM posts p
     WHERE p."publishedAt" >= ${since} AND ${eligible(audience)}
     ORDER BY ${thenLikedThenNewest}
+    LIMIT ${take}`);
+}
+
+/**
+ * Embedded posts closest in meaning to `vector` (smallest cosine distance,
+ * through the HNSW index), best first. Posts not embedded yet are left out.
+ */
+export function findNearest(vector: readonly number[], audience: Audience, take: number) {
+  return ids(Prisma.sql`
+    SELECT p.id
+    FROM posts p
+    WHERE p.embedding IS NOT NULL AND ${eligible(audience)}
+    ORDER BY p.embedding <=> ${vectorSql(vector)}, ${thenLikedThenNewest}
     LIMIT ${take}`);
 }

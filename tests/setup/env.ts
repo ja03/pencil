@@ -23,6 +23,8 @@ export const testEnv = {
   SMTP_HOST: process.env.TEST_SMTP_HOST ?? "localhost",
   SMTP_PORT: process.env.TEST_SMTP_PORT ?? "1025",
   MAIL_FROM: "Pencil <no-reply@pencil.test>",
+  // Never real Gemini: tests that need AI install a fake provider.
+  GEMINI_API_KEY: "",
 } as const;
 
 /** Mailpit's HTTP API, where tests read the emails the app sent. */

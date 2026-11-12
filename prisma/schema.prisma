@@ -1,5 +1,5 @@
 // Pencil schema. The `vector` extension (pgvector) is enabled by the first
-// migration so later tickets can add `embedding vector(768)` columns.
+// migration; posts keep an `embedding vector(768)` for AI recommendations.
 
 generator client {
   provider = "prisma-client"
@@ -52,6 +52,12 @@ model Post {
   editedAt       DateTime?
   /// Soft delete: a deleted post is 404 everywhere.
   deletedAt      DateTime?
+  /// What the post means, for recommendations: a normalized 768-dimension
+  /// vector of its title, description and tags. Null until it is embedded,
+  /// and again whenever those change, until it is embedded anew. Prisma can't
+  /// read or write this type, so src/server/embeddings/repository.ts does it
+  /// in SQL; the HNSW index on it is created by its migration.
+  embedding      Unsupported("vector(768)")?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   tags           PostTag[]

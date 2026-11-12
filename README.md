@@ -23,6 +23,18 @@ npm run db:seed   # creates the bucket and lets browsers read uploaded images
 npm run dev
 ```
 
+## AI recommendations
+
+"Recommended for you" and "More like this" pick posts by meaning when `GEMINI_API_KEY` is set in `.env` (or on the server). Each post is embedded with Gemini `gemini-embedding-001` after it is published, and again when its title, description or tags change. Without a key, recommendations use tag overlap.
+
+Posts published before the key was set, or whose embedding failed, have no vector yet. To embed them:
+
+```bash
+npm run embeddings:backfill
+```
+
+It only touches published posts missing a vector, so it is safe to run again.
+
 ## Test
 
 Tests call the REST route handlers against the real services from `docker compose`, using a separate `pencil_test` database and `pencil-test` bucket. Emails the app sends are read back from Mailpit's API.

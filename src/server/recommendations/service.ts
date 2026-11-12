@@ -7,7 +7,7 @@ import {
   type RecommendationsResponse,
 } from "@/contracts/recommendations";
 import { clock } from "@/server/clock";
-import { env } from "@/server/env";
+import { embeddingProvider } from "@/server/embeddings/provider";
 import { ApiError } from "@/server/http/errors";
 import { isPublished } from "@/server/posts/repository";
 import { summariesOf } from "@/server/posts/service";
@@ -17,7 +17,7 @@ import { findPopularSince } from "./repository";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function strategy() {
-  return createRecommendationStrategy({ aiKey: env().GEMINI_API_KEY });
+  return createRecommendationStrategy(embeddingProvider());
 }
 
 /**

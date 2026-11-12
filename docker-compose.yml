@@ -63,6 +63,8 @@ services:
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
       MAIL_FROM: Pencil <no-reply@pencil.local>
+      # From .env or the shell; blank means recommendations use tag overlap.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     # Same start path as production (migrate, then serve), plus the seed.
     command: ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && npx next start"]
     ports:
