@@ -192,6 +192,7 @@ These are the build phases from the spec, in order, matched to their issues.
   - Log `X-Forwarded-For` once in production to confirm the assumption #4 relies on.
   - The free Render tier sleeps when idle.
   - #19 landed first and added the E2E tests as the last steps of CI's `check` job. The deploy must wait for that job (`needs: check`, or Render's "after CI checks pass"), so a failing E2E test blocks it.
+- **Landed note:** `render.yaml` describes the service with Render's auto-deploy off. CI's `deploy` job (`needs: check`, pushes to `main` only) calls the `RENDER_DEPLOY_HOOK_URL` secret with `ref=<sha>`. Migrations use `DIRECT_URL` (Neon's unpooled string) when it's set, through `prisma.config.ts`. Free Render services can't reach SMTP ports 25, 465 or 587, so Mailtrap runs on 2525. Setup steps are in `docs/deploy.md`.
 
 ### 6. Social
 
