@@ -42,6 +42,12 @@ export const loginInput = z.object({
 });
 export type LoginInput = z.infer<typeof loginInput>;
 
+/** The ID token Google Identity Services gives the browser after a Google sign-in. */
+export const googleSignInInput = z.object({
+  credential: z.string().min(1, "The Google sign-in is missing its token.").max(4096),
+});
+export type GoogleSignInInput = z.infer<typeof googleSignInInput>;
+
 /** The token from an emailed link. */
 const linkToken = z.string().min(1, "This link is missing its token.").max(200);
 

@@ -25,6 +25,8 @@ export const testEnv = {
   MAIL_FROM: "Pencil <no-reply@pencil.test>",
   // Never real Gemini: tests that need AI install a fake provider.
   GEMINI_API_KEY: "",
+  // Google sign-in is off unless a test installs a fake verifier.
+  GOOGLE_CLIENT_ID: "",
 } as const;
 
 /** Mailpit's HTTP API, where tests read the emails the app sent. */

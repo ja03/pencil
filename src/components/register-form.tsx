@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { z } from "zod";
 import { apiErrorOf, useRegisterMutation } from "@/client/api";
 import { signedIn } from "@/client/auth-slice";
@@ -11,7 +11,8 @@ import type { FieldErrors } from "@/contracts/api-error";
 import { registerInput } from "@/contracts/auth";
 import { AuthHeading, FormAlert, FormField, SubmitButton } from "./form-field";
 
-export function RegisterForm() {
+/** `google` is the Google sign-in slot (`<GoogleSignIn />`), rendered under the form. */
+export function RegisterForm({ google }: { google?: ReactNode }) {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const [register, { isLoading }] = useRegisterMutation();
@@ -88,6 +89,7 @@ export function RegisterForm() {
         />
         <SubmitButton pending={isLoading}>{isLoading ? "Creating account…" : "Create account"}</SubmitButton>
       </form>
+      {google}
       <p className="m-0 text-center text-sm text-mut">
         Already have an account?{" "}
         <Link href="/login" className="font-medium text-acc">

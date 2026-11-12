@@ -1,5 +1,6 @@
 import type {
   CurrentUser,
+  GoogleSignInInput,
   LoginInput,
   RegisterInput,
   ResetPasswordInput,
@@ -15,13 +16,19 @@ import { issueToken, redeemToken } from "@/server/tokens/service";
 import {
   createUser,
   findTakenFields,
+  findTakenUsernames,
   findUserByEmail,
+  findUserByGoogleId,
   findUserById,
+  linkGoogleAccount,
   markEmailVerified,
   replacePassword,
+  takeOverUnverifiedAccount,
   type UniqueUserField,
   type User,
 } from "@/server/users/repository";
+import { googleVerifier, type GoogleIdentity } from "./google";
+import { usernameBase, usernameCandidates } from "./google-username";
 import { hashPassword, verifyPassword } from "./password";
 import { SESSION_COOKIE, signSession, verifySession } from "./session";
 
@@ -168,6 +175,85 @@ export async function login({ email, password }: LoginInput): Promise<SignedIn> 
     throw new ApiError("UNAUTHENTICATED", "That email and password don't match.");
   }
   return startSession(user);
+}
+
+/**
+ * Signs in with a Google ID token, creating or linking the account:
+ *
+ * - A Google account seen before signs in to the account it is linked to.
+ * - A verified Pencil account with the same email is linked, not duplicated.
+ * - An unverified Pencil account with that email (anyone can register an
+ *   address they don't own) is taken over: Google proved who owns it.
+ * - Otherwise a new account is made, verified, with a username from the email.
+ *
+ * Google must say the email is verified for anything but the first case;
+ * otherwise anyone could claim an address through Google and take its account.
+ */
+export async function signInWithGoogle({ credential }: GoogleSignInInput): Promise<SignedIn> {
+  const verifier = googleVerifier();
+  if (!verifier) throw new ApiError("NOT_FOUND", "Google sign-in isn't available.");
+  const verified = await verifier.verify(credential);
+  const identity = verified && { ...verified, email: verified.email.trim().toLowerCase() };
+  if (!identity) {
+    throw new ApiError("UNAUTHENTICATED", "Google couldn't confirm your sign-in. Please try again.");
+  }
+
+  const linked = await findUserByGoogleId(identity.googleId);
+  if (linked) return startSession(linked);
+
+  if (!identity.emailVerified) {
+    throw new ApiError(
+      "FORBIDDEN",
+      "Your Google account's email isn't verified. Verify it with Google, or sign up with a password.",
+    );
+  }
+  return startSession(await googleAccountFor(identity));
+}
+
+/** How many usernames to check per database round trip. */
+const USERNAME_BATCH = 20;
+
+/** The account a verified Google identity with no linked account signs in to. */
+async function googleAccountFor(identity: GoogleIdentity, attempt = 0): Promise<User> {
+  const existing = await findUserByEmail(identity.email);
+  if (existing) {
+    if (existing.googleId) {
+      // The address belongs to an account linked to a different Google account.
+      throw new ApiError("CONFLICT", "An account with that email is linked to another Google account.");
+    }
+    if (existing.emailVerifiedAt) return linkGoogleAccount(existing.id, identity.googleId);
+    const taken = await takeOverUnverifiedAccount(existing.id, identity.googleId, clock.now());
+    // Verified between the two reads: link it instead.
+    return taken ?? googleAccountFor(identity, attempt);
+  }
+
+  let from = 1;
+  const base = usernameBase(identity.email);
+  for (;;) {
+    const candidates = usernameCandidates(base, from, USERNAME_BATCH);
+    const takenNames = await findTakenUsernames(candidates);
+    const username = candidates.find((c) => !takenNames.has(c));
+    if (!username) {
+      from += USERNAME_BATCH;
+      continue;
+    }
+    const created = await createUser({
+      email: identity.email,
+      username,
+      passwordHash: null,
+      googleId: identity.googleId,
+      emailVerifiedAt: clock.now(),
+    });
+    if (created.ok) return created.user;
+    // A concurrent request took the username (try the next) or made the
+    // account itself (start over and find it), at most a few times.
+    if (attempt >= 3) throw takenError(created.taken);
+    attempt++;
+    if (created.taken.includes("email") || created.taken.length === 0) {
+      const raced = await findUserByGoogleId(identity.googleId);
+      return raced ?? googleAccountFor(identity, attempt);
+    }
+  }
 }
 
 type SessionState<U> =
