@@ -60,6 +60,9 @@ export function toCurrentUser(user: User): CurrentUser {
     username: user.username,
     email: user.email,
     emailVerified: user.emailVerifiedAt !== null,
+    // Only whether each is set: never the hash or the Google id themselves.
+    hasPassword: user.passwordHash !== null,
+    googleLinked: user.googleId !== null,
   };
 }
 

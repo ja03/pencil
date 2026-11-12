@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { parseTheme, THEME_COOKIE, type Theme } from "@/client/theme";
 import type { CurrentUser } from "@/contracts/auth";
 import { profilePath } from "@/contracts/users";
+import { ResendVerificationButton } from "@/components/resend-verification-button";
 import { LogOutButton, SettingsNav } from "@/components/settings-nav";
 import { parseSettingsTab, settingsPath, type SettingsTab } from "@/components/settings-tabs";
 import { ThemePicker } from "@/components/theme-picker";
@@ -111,7 +113,13 @@ function AccountSection({ user }: { user: CurrentUser }) {
           </div>
           {!user.emailVerified && (
             <p className="m-0 mt-2 rounded-[14px] bg-warn-bg px-4 py-3.5 text-sm leading-normal text-warn-ink">
-              Until you verify, you can read and write drafts but not publish, like or comment.
+              Until you verify, you can read and write drafts but not publish, like or comment.{" "}
+              <ResendVerificationButton
+                email={user.email}
+                className="cursor-pointer bg-transparent p-0 font-semibold text-warn-ink underline underline-offset-2 disabled:cursor-wait disabled:opacity-70"
+              >
+                Resend link
+              </ResendVerificationButton>
             </p>
           )}
         </div>
@@ -124,19 +132,63 @@ function AccountSection({ user }: { user: CurrentUser }) {
 function SecuritySection({ user }: { user: CurrentUser }) {
   return (
     <Card id="security-title" title="Password & sign-in" intro="How you sign in to Pencil.">
-      <div className="flex items-center gap-3.5">
-        <span aria-hidden="true" className="flex size-11 flex-none items-center justify-center rounded-full border-[1.5px] border-ink">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-            <rect x="5" y="11" width="14" height="9" rx="2" />
-            <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-          </svg>
-        </span>
-        <div className="flex min-w-0 flex-col gap-[3px]">
-          <h3 className="m-0 text-base font-semibold">Email and password</h3>
-          <span className="text-sm break-words text-mut">You sign in as {user.email}.</span>
-        </div>
-      </div>
+      {user.hasPassword && (
+        <SignInMethod
+          icon={
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <rect x="5" y="11" width="14" height="9" rx="2" />
+              <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+            </svg>
+          }
+          title="Email and password"
+          detail={<>You sign in as {user.email}.</>}
+          action={
+            <Link href="/forgot-password" className="text-[13px] text-acc">
+              Forgot your password?
+            </Link>
+          }
+        />
+      )}
+      {user.googleLinked && (
+        <SignInMethod
+          icon={
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <path d="M20 12.2a8 8 0 1 1-2.4-5.7" />
+              <path d="M20 12h-8" />
+            </svg>
+          }
+          title="Google"
+          detail={<>Connected as {user.email}.</>}
+          action={<span className={`${chip} bg-pub-bg text-ok`}>Connected</span>}
+        />
+      )}
     </Card>
+  );
+}
+
+/** One way the account can sign in: what it is, who it signs in as, and what to do about it. */
+function SignInMethod({
+  icon,
+  title,
+  detail,
+  action,
+}: {
+  icon: ReactNode;
+  title: string;
+  detail: ReactNode;
+  action: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
+      <span aria-hidden="true" className="flex size-11 flex-none items-center justify-center rounded-full border-[1.5px] border-ink">
+        {icon}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+        <h3 className="m-0 text-base font-semibold">{title}</h3>
+        <span className="text-sm break-words text-mut">{detail}</span>
+      </div>
+      {action}
+    </div>
   );
 }
 

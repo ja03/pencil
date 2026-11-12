@@ -63,11 +63,16 @@ describe("POST /api/auth/google", () => {
       username: "ada_lovelace",
       email: "ada.lovelace@example.com",
       emailVerified: true,
+      hasPassword: false,
+      googleLinked: true,
     });
+    expect(JSON.stringify(res.body)).not.toContain("g-ada");
     const row = await db().user.findUniqueOrThrow({ where: { id: res.body.user.id } });
     expect(row.googleId).toBe("g-ada");
     expect(row.passwordHash).toBeNull();
-    expect((await meWith(cookieOf(res))).body.user.id).toBe(row.id);
+    const current = await meWith(cookieOf(res));
+    expect(current.body.user).toMatchObject({ id: row.id, hasPassword: false, googleLinked: true });
+    expect(JSON.stringify(current.body)).not.toContain("g-ada");
   });
 
   it("adds a number when the username is taken", async () => {
@@ -124,6 +129,12 @@ describe("POST /api/auth/google", () => {
       body: { email: "ada@example.com", password: TEST_PASSWORD },
     });
     expect(withPassword.status).toBe(200);
+    // Both ways in show up on the current user, with neither secret.
+    for (const body of [res.body, withPassword.body, (await meWith(cookieOf(withPassword))).body]) {
+      expect(body.user).toMatchObject({ hasPassword: true, googleLinked: true });
+      expect(JSON.stringify(body)).not.toContain("g-ada");
+      expect(JSON.stringify(body)).not.toContain(row.passwordHash!);
+    }
   });
 
   it("doesn't link an existing account when Google hasn't verified the email", async () => {
