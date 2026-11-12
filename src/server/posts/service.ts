@@ -12,6 +12,8 @@ import {
 } from "@/contracts/posts";
 import { normalizeTag, TAG_SUGGESTION_LIMIT, type TagSuggestionsResponse } from "@/contracts/tags";
 import { clock } from "@/server/clock";
+import { embedAfterResponse, reembedAfterResponse } from "@/server/embeddings/service";
+import { changesEmbedding, type EmbeddingSource } from "@/server/embeddings/text";
 import { ApiError } from "@/server/http/errors";
 import { hasLiked, likedAmong } from "@/server/likes/repository";
 import { findUserByUsername } from "@/server/users/repository";
@@ -25,6 +27,12 @@ import { slugify } from "./slug";
 const NOT_FOUND = "That post doesn't exist.";
 
 const namesOf = (tags: { tag: { name: string } }[]) => tags.map((t) => t.tag.name);
+
+const embeddingSourceOf = (row: posts.PostRow): EmbeddingSource => ({
+  title: row.title,
+  description: row.description,
+  tags: namesOf(row.tags),
+});
 
 function toPost(row: posts.PostRow, likedByViewer: boolean): Post {
   const content = row.content as PostContent;
@@ -177,6 +185,10 @@ export async function updatePost(
     tags: input.tags,
     ...(changed && row.publishedAt && { editedAt: clock.now() }),
   });
+  // Drafts are embedded when they are published, so only published posts re-embed.
+  if (updated.publishedAt && changesEmbedding(embeddingSourceOf(row), embeddingSourceOf(updated))) {
+    await reembedAfterResponse(id);
+  }
   return present(user, updated);
 }
 
@@ -188,7 +200,9 @@ export async function publishPost(user: CurrentUser, id: string): Promise<Post> 
   const row = await findOwnForChange(user, id, "publish");
   if (!user.emailVerified) throw new ApiError("FORBIDDEN", "Verify your email to publish.");
   if (row.publishedAt) return present(user, row);
-  return present(user, await posts.publishPost(id, clock.now()));
+  const published = await posts.publishPost(id, clock.now());
+  embedAfterResponse(id);
+  return present(user, published);
 }
 
 /**

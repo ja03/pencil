@@ -287,6 +287,7 @@ These are the build phases from the spec, in order, matched to their issues.
   - Embedding runs in `after()`. A failure must never affect the save.
   - Only re-embed when the title, description or tags change.
   - Tests use the fake provider and never call Gemini.
+- **Landed note:** the HNSW index on `posts.embedding` exists only in its migration, because Prisma can't express it. Prisma sees it as drift, so any later `prisma migrate dev` generates a `DROP INDEX "posts_embedding_idx"`. Delete that line from the new migration before applying it.
 
 ## If time runs out
 
