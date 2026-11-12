@@ -1,12 +1,12 @@
 # Pencil roadmap
 
-How agents work through the Pencil build. The spec is [#1](https://github.com/ja03/pencil/issues/1). The work is split into 21 tickets, issues [#2](https://github.com/ja03/pencil/issues/2)–[#21](https://github.com/ja03/pencil/issues/21) plus [#28](https://github.com/ja03/pencil/issues/28) (a fix found while building #6), each a sub-issue of #1 labelled `ready-for-agent`, with GitHub's native "blocked by" links.
+How agents work through the Pencil build. The spec is [#1](https://github.com/ja03/pencil/issues/1). The work is split into 22 tickets, issues [#2](https://github.com/ja03/pencil/issues/2)–[#21](https://github.com/ja03/pencil/issues/21) plus [#28](https://github.com/ja03/pencil/issues/28) (a fix found while building #6) and [#48](https://github.com/ja03/pencil/issues/48) (the README), each a sub-issue of #1 labelled `ready-for-agent`, with GitHub's native "blocked by" links.
 
 The issues are the source of truth. This file explains the order and the reasons behind it. If an issue and this file disagree, follow the issue and fix this file.
 
 ## Picking the next issue
 
-Work the **frontier**: an open sub-issue of #1 with no open blockers and no assignee. When several are free, take the lowest number. The numbering follows the spec's build order, so a single agent can work #2 → #21 in order, with one exception: #28 was added later and must land before #15.
+Work the **frontier**: an open sub-issue of #1 with no open blockers and no assignee. When several are free, take the lowest number. The numbering follows the spec's build order, so a single agent can work #2 → #21 in order, with two exceptions, both added later: #28 must land before #15, and #48 comes last.
 
 ```bash
 gh api repos/ja03/pencil/issues/1/sub_issues --jq '.[] | select(.state=="open" and (.assignees|length)==0) | .number' \
@@ -77,6 +77,9 @@ flowchart LR
   I28 --> I15
   I15 --> I19
   I20 --> I21[#21 AI embeddings]
+  I10 --> I48[#48 README]
+  I19 --> I48
+  I21 --> I48
 ```
 
 **Critical path:** #2 → #3 → #5 → #6 → #7 → #20 → #21, which is 7 issues in a row. Delays on this path delay the whole build, so give these issues priority.
@@ -93,7 +96,8 @@ A wave is a set of issues that can run in parallel once every earlier wave is me
 | 3 | #6, #8, #14 | The feed, uploads, the email pipeline |
 | 4 | #7, #9, #11, #12, #15 | Social features, tags, profile, password reset |
 | 5 | #13, #18, #19, #20 | Finishing work, E2E tests, recommendations |
-| 6 | #21 | Done |
+| 6 | #21 | The README |
+| 7 | #48 | Done |
 
 **Running agents in parallel:** most tickets add to the Prisma schema, and two branches that each add a migration will conflict.
 - When this happens, rebase onto `main` and regenerate the migration. Never hand-merge two migration files.
@@ -186,7 +190,7 @@ These are the build phases from the spec, in order, matched to their issues.
 
 **[#10 Deploy to Render from CI](https://github.com/ja03/pencil/issues/10)**
 - **Blocked by:** #2.
-- **Unlocks:** nothing.
+- **Unlocks:** #48.
 - **When to do it:** it can technically start right after the skeleton. The spec says to ship after the feed and pages so the live site has something to show, and number order puts it there.
 - **Watch out:**
   - Log `X-Forwarded-For` once in production to confirm the assumption #4 relies on.
@@ -268,7 +272,7 @@ These are the build phases from the spec, in order, matched to their issues.
 
 **[#19 End-to-end tests for the core journeys](https://github.com/ja03/pencil/issues/19)**
 - **Blocked by:** #11, #12 and #15.
-- **Unlocks:** nothing.
+- **Unlocks:** #48.
 - **Scope:** two Playwright journeys, kept short. The verification link is read from Mailpit's API.
 - **Watch out:** once this ticket lands, E2E tests gate the deploy in CI.
 - **Landed note:** the journeys live in `e2e/` and run with `npm run test:e2e`. Playwright builds the app and serves it on port 3100 against the feature tests' database, bucket and Mailpit. Each run signs up fresh users instead of wiping data. Logins are rate-limited to 5 per minute per IP, and the limit is kept in the server's memory, so keep logins in a journey to a minimum.
@@ -285,12 +289,20 @@ These are the build phases from the spec, in order, matched to their issues.
 
 **[#21 AI recommendations with embeddings](https://github.com/ja03/pencil/issues/21)**
 - **Blocked by:** #20.
-- **Unlocks:** nothing.
+- **Unlocks:** #48.
 - **Watch out:**
   - Embedding runs in `after()`. A failure must never affect the save.
   - Only re-embed when the title, description or tags change.
   - Tests use the fake provider and never call Gemini.
 - **Landed note:** the HNSW index on `posts.embedding` exists only in its migration, because Prisma can't express it. Prisma sees it as drift, so any later `prisma migrate dev` generates a `DROP INDEX "posts_embedding_idx"`. Delete that line from the new migration before applying it.
+
+### 12. Docs
+
+**[#48 README and design-pattern write-up](https://github.com/ja03/pencil/issues/48)**
+- **Blocked by:** #10, #19 and #21 (or #20 if #21 is cut).
+- **Unlocks:** nothing.
+- **Scope:** the spec's last build step. The README covers the architecture and request layering, the testing approach, and links to the live app, `docs/deploy.md` and `docs/adr/`. It also documents the five patterns the spec names: Singleton, Repository + Service, Factory, Middleware and Strategy.
+- **Landed note:** the README's paths, commands and claims were checked against the code when #48 merged. When a change moves a file the README names (the pattern sections cite `src/server/db.ts`, `src/server/http/route.ts`, `src/proxy.ts`, `src/client/store.ts` and `src/server/recommendations/`), update the README in the same PR.
 
 ## If time runs out
 
@@ -301,7 +313,3 @@ The spec targets one day of work. Cut from the end, in this order:
 3. **#18:** visual polish only. The 404 behaviour itself is already covered by tests in #5 and #9.
 
 Never cut these, because they cover graded requirements: #2, #3, #5, #6, #9, #10, #11, #12 and #19.
-
-## Not ticketed yet
-
-- **README and design-pattern write-up:** the spec's last build step. The patterns to document are Singleton, Repository + Service, Factory, Middleware and Strategy. Add a ticket blocked by #10, #19 and #21 (or #20 if #21 is cut) when needed.
