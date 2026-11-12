@@ -116,7 +116,7 @@ function PostRow({ post, onDelete }: { post: MyPost; onDelete: () => void }) {
   const updated = shortDate(post.updatedAt);
   return (
     <li
-      className={`grid grid-cols-1 items-center gap-3 border-b border-line p-[18px] last:border-b-0 md:gap-4 md:px-6 md:py-4 ${ROW_GRID}`}
+      className={`motion-rise grid grid-cols-1 items-center gap-3 border-b border-line p-[18px] last:border-b-0 md:gap-4 md:px-6 md:py-4 ${ROW_GRID}`}
     >
       <div className="flex min-w-0 items-center gap-3.5">
         <span aria-hidden="true" className="relative h-[42px] w-14 flex-none overflow-hidden rounded-lg">

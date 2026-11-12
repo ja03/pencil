@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { AuthMessage, PRIMARY_ACTION, SECONDARY_ACTION } from "@/components/auth-message";
+import { PageTransition } from "@/components/page-transition";
 import { ResendVerificationButton } from "@/components/resend-verification-button";
 import { getCurrentUser } from "@/server/auth/service";
 
@@ -13,9 +14,11 @@ export const metadata: Metadata = { title: "Verify your email · Pencil" };
 export default function VerifyPage() {
   // Who is asking is only known at request time.
   return (
-    <Suspense>
-      <CheckYourEmail />
-    </Suspense>
+    <PageTransition>
+      <Suspense>
+        <CheckYourEmail />
+      </Suspense>
+    </PageTransition>
   );
 }
 

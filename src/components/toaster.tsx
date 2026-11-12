@@ -18,7 +18,13 @@ type ToastOptions = {
   /** A new toast replaces any showing toast with the same key, e.g. one save's result replaces the last. */
   key?: string;
 };
-type Toast = ToastOptions & { id: number; kind: ToastKind; text: string };
+type Toast = ToastOptions & {
+  id: number;
+  kind: ToastKind;
+  text: string;
+  /** Fading out; removed when the fade ends. */
+  leaving?: boolean;
+};
 
 export type Toasts = {
   /** Fades after 4 seconds. */
@@ -32,6 +38,8 @@ export type Toasts = {
 /** How long each kind stays; errors stay until dismissed. */
 const FADE_MS: Partial<Record<ToastKind, number>> = { success: 4000, info: 8000 };
 const MAX_VISIBLE = 4;
+/** Removes a leaving toast even if its fade never reports ending. */
+const LEAVE_FALLBACK_MS = 1000;
 
 const ToastContext = createContext<Toasts | null>(null);
 
@@ -46,7 +54,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(1);
 
+  // Dismissing starts the fade out; the toast is removed once it ends.
   const dismiss = useCallback((id: number) => {
+    setToasts((current) => current.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
+  }, []);
+  const remove = useCallback((id: number) => {
     setToasts((current) => current.filter((t) => t.id !== id));
   }, []);
 
@@ -73,7 +85,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-center gap-2.5 p-4 sm:items-end sm:p-6">
         {toasts.map((toast) => (
-          <ToastItem key={toast.id} toast={toast} onDismiss={() => dismiss(toast.id)} />
+          <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} onGone={remove} />
         ))}
       </div>
     </ToastContext.Provider>
@@ -86,19 +98,42 @@ const ICONS: Record<ToastKind, { glyph: string; className: string }> = {
   error: { glyph: "!", className: "bg-[#B5372A] text-[#FFF4F2]" },
 };
 
-function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
+function ToastItem({
+  toast,
+  onDismiss: dismissById,
+  onGone,
+}: {
+  toast: Toast;
+  onDismiss: (id: number) => void;
+  onGone: (id: number) => void;
+}) {
+  const { id, kind, leaving } = toast;
+  const onDismiss = () => dismissById(id);
+
   useEffect(() => {
-    const fadeMs = FADE_MS[toast.kind];
-    if (fadeMs === undefined) return;
-    const timer = setTimeout(onDismiss, fadeMs);
+    const fadeMs = FADE_MS[kind];
+    if (fadeMs === undefined || leaving) return;
+    const timer = setTimeout(() => dismissById(id), fadeMs);
     return () => clearTimeout(timer);
-  }, [toast.kind, onDismiss]);
+  }, [id, kind, leaving, dismissById]);
+
+  useEffect(() => {
+    if (!leaving) return;
+    const timer = setTimeout(() => onGone(id), LEAVE_FALLBACK_MS);
+    return () => clearTimeout(timer);
+  }, [id, leaving, onGone]);
 
   const icon = ICONS[toast.kind];
   return (
     <div
       role={toast.kind === "error" ? "alert" : "status"}
-      className="pointer-events-auto flex w-full max-w-[420px] items-center gap-3 rounded-2xl bg-toast py-3 pr-3 pl-4 text-toast-ink shadow-[0_14px_34px_rgba(20,12,8,0.22)]"
+      // A leaving toast is already gone as far as anyone using it can tell.
+      aria-hidden={leaving || undefined}
+      inert={leaving}
+      onAnimationEnd={(e) => {
+        if (leaving && e.target === e.currentTarget) onGone(id);
+      }}
+      className={`${leaving ? "motion-leave pointer-events-none" : "motion-rise pointer-events-auto"} flex w-full max-w-[420px] items-center gap-3 rounded-2xl bg-toast py-3 pr-3 pl-4 text-toast-ink shadow-[0_14px_34px_rgba(20,12,8,0.22)]`}
     >
       <span
         aria-hidden="true"

@@ -20,7 +20,7 @@ export function VerifyBanner({
     <div
       role="region"
       aria-label="Email verification"
-      className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 bg-warn-bg px-5 py-2.5 text-center text-[13px] leading-[1.4] text-warn-ink"
+      className="motion-fade flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 bg-warn-bg px-5 py-2.5 text-center text-[13px] leading-[1.4] text-warn-ink"
     >
       <span>{message}</span>
       <ResendVerificationButton

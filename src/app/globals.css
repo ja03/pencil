@@ -235,3 +235,160 @@ body {
   color: var(--mut);
   pointer-events: none;
 }
+
+/* ---------------------------------------------------------------------------
+   Motion. Every duration and easing lives here, so the whole app moves the
+   same way. Opacity and transform only, so nothing shifts layout. A reader
+   who asks for reduced motion gets none of it: the tokens drop to zero, and
+   page transitions and smooth scrolling are switched off below.
+   ------------------------------------------------------------------------- */
+:root {
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --motion-slow: 250ms;
+  --motion-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --motion-rise: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0s;
+    --motion-base: 0s;
+    --motion-slow: 0s;
+    --motion-rise: 0px;
+  }
+}
+
+/* In-page jumps (anchors, "Read the latest", a comment link) glide. Page
+   navigations still land at the top at once: data-scroll-behavior="smooth"
+   on <html> tells Next.js to switch this off while it navigates. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@keyframes motion-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes motion-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes motion-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-rise));
+  }
+}
+@keyframes motion-sink-out {
+  to {
+    opacity: 0;
+    transform: translateY(var(--motion-rise));
+  }
+}
+
+/* Fades and rises a few px into place when the element is inserted: a card
+   from the server, one added by infinite scroll, content replacing a
+   skeleton, a new comment. */
+.motion-rise {
+  animation: motion-rise-in var(--motion-base) var(--motion-ease) both;
+}
+/* A plain fade in, for banners, alerts and inline panels. */
+.motion-fade {
+  animation: motion-fade-in var(--motion-base) var(--motion-ease) both;
+}
+/* Leaving: the element is removed once this ends (see the toaster). */
+.motion-leave {
+  animation: motion-sink-out var(--motion-fast) var(--motion-ease-in) both;
+}
+
+/* Modal dialogs fade in and out, and so do their backdrops. The discrete
+   `display` and `overlay` transitions keep a closing dialog on screen and on
+   the top layer until its fade ends. Browsers without them just pop. */
+dialog,
+dialog::backdrop {
+  transition:
+    opacity var(--motion-fast) var(--motion-ease-in),
+    transform var(--motion-fast) var(--motion-ease-in),
+    display var(--motion-fast) allow-discrete,
+    overlay var(--motion-fast) allow-discrete;
+}
+dialog {
+  opacity: 0;
+  transform: translateY(var(--motion-rise));
+}
+dialog::backdrop {
+  opacity: 0;
+}
+dialog[open] {
+  opacity: 1;
+  transform: none;
+  transition-duration: var(--motion-base);
+  transition-timing-function: var(--motion-ease);
+}
+dialog[open]::backdrop {
+  opacity: 1;
+  transition-duration: var(--motion-base);
+  transition-timing-function: var(--motion-ease);
+}
+@starting-style {
+  dialog[open] {
+    opacity: 0;
+    transform: translateY(var(--motion-rise));
+  }
+  dialog[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+/* A popup shown and hidden with the `hidden` attribute, such as the tag
+   suggestions, fades in and out the same way. */
+.motion-popup {
+  transition:
+    opacity var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease),
+    display var(--motion-fast) allow-discrete;
+}
+.motion-popup[hidden] {
+  opacity: 0;
+  transform: translateY(calc(var(--motion-rise) * -1));
+}
+@starting-style {
+  .motion-popup:not([hidden]) {
+    opacity: 0;
+    transform: translateY(calc(var(--motion-rise) * -1));
+  }
+}
+
+/* Page navigations: every page is wrapped in <PageTransition>, which gives
+   the outgoing page the `page-exit` class and the incoming one `page-enter`.
+   The old page fades out quickly; the new one fades and rises in. Browsers
+   without the View Transitions API navigate with no animation. */
+::view-transition {
+  /* Clicks during a transition reach the live page instead of the overlay. */
+  pointer-events: none;
+}
+::view-transition-old(.page-exit) {
+  animation: motion-fade-out var(--motion-fast) var(--motion-ease-in) both;
+}
+::view-transition-new(.page-enter) {
+  animation: motion-rise-in var(--motion-slow) var(--motion-ease) both;
+}
+::view-transition-group(.page-enter),
+::view-transition-group(.page-exit) {
+  animation-duration: var(--motion-slow);
+  animation-timing-function: var(--motion-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

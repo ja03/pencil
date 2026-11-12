@@ -22,7 +22,7 @@ export function PostCard({
   const href = `/posts/${post.slug}`;
   const compact = variant === "compact";
   return (
-    <article className="flex h-full flex-col gap-3.5 rounded-[18px] border border-line bg-surf p-2.5 text-ink">
+    <article className="motion-rise flex h-full flex-col gap-3.5 rounded-[18px] border border-line bg-surf p-2.5 text-ink">
       <Link
         href={href}
         tabIndex={-1}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Suspense } from "react";
+import { PageTransition } from "@/components/page-transition";
 import { EditorSkeleton, PostEditor } from "@/components/post-editor";
 import { normalizeTag } from "@/contracts/tags";
 import { requirePageUser } from "@/server/auth/page-guard";
@@ -14,9 +15,11 @@ export const metadata: Metadata = { title: "New post · Pencil" };
  */
 export default function NewPostPage({ searchParams }: PageProps<"/write">) {
   return (
-    <Suspense fallback={<EditorSkeleton />}>
-      <NewPost searchParams={searchParams} />
-    </Suspense>
+    <PageTransition>
+      <Suspense fallback={<EditorSkeleton />}>
+        <NewPost searchParams={searchParams} />
+      </Suspense>
+    </PageTransition>
   );
 }
 

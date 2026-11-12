@@ -190,7 +190,7 @@ export function TagInput({
         role="listbox"
         aria-label="Existing tags"
         hidden={!showList}
-        className="absolute top-full left-0 z-20 mt-1 flex w-[min(280px,100%)] flex-col rounded-[14px] border border-line bg-surf p-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.18)]"
+        className="motion-popup absolute top-full left-0 z-20 mt-1 flex w-[min(280px,100%)] flex-col rounded-[14px] border border-line bg-surf p-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.18)]"
       >
         {options.map((option, i) => (
           <div

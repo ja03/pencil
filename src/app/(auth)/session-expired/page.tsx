@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { safeNext } from "@/client/safe-next";
 import { AuthMessage, PRIMARY_ACTION, SECONDARY_ACTION } from "@/components/auth-message";
+import { PageTransition } from "@/components/page-transition";
 import { getCurrentUser } from "@/server/auth/service";
 
 export const metadata: Metadata = { title: "Session expired · Pencil" };
@@ -19,9 +20,11 @@ type Props = PageProps<"/session-expired">;
 export default function SessionExpiredPage({ searchParams }: Props) {
   // The session and `?next=` are only known at request time.
   return (
-    <Suspense>
-      <SessionExpired searchParams={searchParams} />
-    </Suspense>
+    <PageTransition>
+      <Suspense>
+        <SessionExpired searchParams={searchParams} />
+      </Suspense>
+    </PageTransition>
   );
 }
 

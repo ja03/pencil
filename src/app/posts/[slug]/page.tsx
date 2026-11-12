@@ -7,6 +7,7 @@ import { longDate } from "@/client/format";
 import { CommentIcon, commentsLabel } from "@/components/comment-icon";
 import { CommentsSection } from "@/components/comments-section";
 import { LikeButton } from "@/components/like-button";
+import { PageTransition } from "@/components/page-transition";
 import { PostCover } from "@/components/post-cover";
 import { MoreLikeThis, MoreLikeThisSkeleton } from "@/components/recommended-posts";
 import type { CommentsResponse } from "@/contracts/comments";
@@ -45,9 +46,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export default function PostPage({ params }: Props) {
   return (
-    <Suspense fallback={<PostSkeleton />}>
-      <PostView params={params} />
-    </Suspense>
+    <PageTransition>
+      <Suspense fallback={<PostSkeleton />}>
+        <PostView params={params} />
+      </Suspense>
+    </PageTransition>
   );
 }
 
@@ -93,7 +96,7 @@ function PostArticle({
 }) {
   const draft = post.status === "draft";
   return (
-    <main className="box-border flex flex-col items-center gap-9 px-4 pt-6 pb-16 sm:gap-14 sm:px-10 sm:pt-12 sm:pb-28">
+    <main className="motion-fade box-border flex flex-col items-center gap-9 px-4 pt-6 pb-16 sm:gap-14 sm:px-10 sm:pt-12 sm:pb-28">
       {draft && (
         <p
           role="note"

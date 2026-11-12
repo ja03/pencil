@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { FeedList, FeedSkeleton } from "@/components/feed-list";
+import { PageTransition } from "@/components/page-transition";
 import { normalizeTag, tagPath } from "@/contracts/tags";
 import { getCurrentUser } from "@/server/auth/service";
 import { linkPreview } from "@/server/link-preview";
@@ -48,11 +49,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export default function TagPage({ params }: Props) {
   return (
-    <main className="mx-auto box-border flex w-full max-w-[1280px] flex-col gap-8 px-4 pt-6 pb-16 sm:gap-12 sm:px-10 sm:pb-28">
-      <Suspense fallback={<TagSkeleton />}>
-        <TagView params={params} />
-      </Suspense>
-    </main>
+    <PageTransition>
+      <main className="mx-auto box-border flex w-full max-w-[1280px] flex-col gap-8 px-4 pt-6 pb-16 sm:gap-12 sm:px-10 sm:pb-28">
+        <Suspense fallback={<TagSkeleton />}>
+          <TagView params={params} />
+        </Suspense>
+      </main>
+    </PageTransition>
   );
 }
 
@@ -89,7 +92,7 @@ async function TagView({ params }: Pick<Props, "params">) {
 
 function TagHeader({ tag, count }: { tag: string; count: number }) {
   return (
-    <header className="flex flex-col items-center gap-3.5 border-b border-line pt-6 pb-8 text-center sm:pt-16 sm:pb-14">
+    <header className="motion-fade flex flex-col items-center gap-3.5 border-b border-line pt-6 pb-8 text-center sm:pt-16 sm:pb-14">
       <span className={`${mono} rounded-full border border-line px-3.5 py-[7px] text-mut`}>Tag</span>
       <h1 className="m-0 max-w-full font-serif text-[56px] leading-none font-normal tracking-[-0.03em] break-words sm:text-[112px]">
         <span className="text-acc">#</span>

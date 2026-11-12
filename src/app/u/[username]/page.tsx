@@ -7,6 +7,7 @@ import { monthYear } from "@/client/format";
 import { EmptyState } from "@/components/empty-state";
 import { FeedList, FeedSkeleton } from "@/components/feed-list";
 import { OwnProfileLink } from "@/components/own-profile-link";
+import { PageTransition } from "@/components/page-transition";
 import { normalizeUsername, profilePath, type AuthorProfile } from "@/contracts/users";
 import { getCurrentUser } from "@/server/auth/service";
 import { linkPreview } from "@/server/link-preview";
@@ -49,11 +50,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export default function ProfilePage({ params }: Props) {
   return (
-    <main className="mx-auto box-border flex w-full max-w-[1280px] flex-col gap-10 px-4 pt-4 pb-16 sm:gap-16 sm:px-10 sm:pt-6 sm:pb-28">
-      <Suspense fallback={<ProfileSkeleton />}>
-        <ProfileView params={params} />
-      </Suspense>
-    </main>
+    <PageTransition>
+      <main className="mx-auto box-border flex w-full max-w-[1280px] flex-col gap-10 px-4 pt-4 pb-16 sm:gap-16 sm:px-10 sm:pt-6 sm:pb-28">
+        <Suspense fallback={<ProfileSkeleton />}>
+          <ProfileView params={params} />
+        </Suspense>
+      </main>
+    </PageTransition>
   );
 }
 
@@ -99,7 +102,7 @@ async function ProfileView({ params }: Pick<Props, "params">) {
 function ProfileHeader({ profile }: { profile: AuthorProfile }) {
   const count = profile.publishedCount;
   return (
-    <section className="grid grid-cols-1 items-center gap-8 rounded-[28px] border border-line bg-surf px-[22px] py-7 sm:grid-cols-[minmax(0,1fr)_auto] sm:px-16 sm:py-14">
+    <section className="motion-fade grid grid-cols-1 items-center gap-8 rounded-[28px] border border-line bg-surf px-[22px] py-7 sm:grid-cols-[minmax(0,1fr)_auto] sm:px-16 sm:py-14">
       <div className="order-2 flex min-w-0 flex-col gap-[18px] sm:order-1">
         <span className={`${mono} text-acc`}>Author</span>
         <h1 className="m-0 font-serif text-[44px] leading-none font-normal tracking-[-0.02em] break-words sm:text-[72px]">
